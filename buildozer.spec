@@ -76,11 +76,17 @@ android.archs = arm64-v8a, armeabi-v7a
 # (int) Log level (0 = error only, 1 = info, 2 = debug (with command output))
 log_level = 2
 
-# (str) Bootstrap to use for creating the distribution
-p4a.bootstrap = sdl2
-
 # (str) The Android arch to build for
 android.archs = arm64-v8a
+
+# (str) Python-for-Android bootstrap to use
+p4a.bootstrap = sdl2
+
+# (str) Python-for-Android NDK version
+p4a.ndk_version = 26b
+
+# (str) Python-for-Android SDK version
+p4a.sdk_version = 34
 
 # (int) Display warning if buildozer is run as root (0 = False, 1 = True)
 warn_on_root = 1

@@ -45,6 +45,8 @@ jobs:
         sed -i 's/android.api = 33/android.api = 34/' buildozer.spec
         sed -i 's/android.ndk = 25b/android.ndk = 26b/' buildozer.spec
         sed -i 's/android.sdk = 33/android.sdk = 34/' buildozer.spec
+        # Remove deprecated android.sdk setting
+        sed -i '/android.sdk = 34/d' buildozer.spec
     
     - name: Setup Android SDK manually
       run: |
@@ -79,16 +81,19 @@ jobs:
         export JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64
         export PATH=$JAVA_HOME/bin:$PATH
         
+        # Set additional Java options for sdkmanager
+        export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
+        
         echo "Using Java version:"
         java -version
         echo "Using sdkmanager version:"
-        sdkmanager --version
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version
         
-        # Accept licenses with timeout
-        timeout 60 sh -c 'yes | sdkmanager --licenses' || echo "License acceptance timed out"
+        # Accept licenses with timeout and proper Java options
+        timeout 60 sh -c "JAVA_OPTS='$JAVA_OPTS' yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses" || echo "License acceptance timed out"
         
-        # Install components with verbose output
-        sdkmanager --verbose "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+        # Install components with verbose output and proper Java options
+        JAVA_OPTS="$JAVA_OPTS" $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --verbose "platform-tools" "platforms;android-34" "build-tools;34.0.0"
         
         # Create additional tools for buildozer compatibility
         mkdir -p tools
@@ -126,7 +131,7 @@ jobs:
         ls -la $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager || echo "cmdline-tools/latest/bin/sdkmanager not found"
         which sdkmanager || echo "sdkmanager not in PATH"
         
-        # Test sdkmanager execution
+        # Test sdkmanager execution with proper Java options
         echo "Testing sdkmanager execution..."
         echo "File types:"
         file $ANDROID_HOME/tools/bin/sdkmanager
@@ -136,10 +141,10 @@ jobs:
         ls -la $ANDROID_HOME/tools/bin/sdkmanager
         ls -la $ANDROID_HOME/tools/sdkmanager
         ls -la $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
-        echo "Version tests:"
-        $ANDROID_HOME/tools/bin/sdkmanager --version || echo "tools/bin/sdkmanager failed"
-        $ANDROID_HOME/tools/sdkmanager --version || echo "tools/sdkmanager failed"
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version || echo "cmdline-tools/latest/bin/sdkmanager failed"
+        echo "Version tests with Java options:"
+        JAVA_OPTS="$JAVA_OPTS" $ANDROID_HOME/tools/bin/sdkmanager --version || echo "tools/bin/sdkmanager failed"
+        JAVA_OPTS="$JAVA_OPTS" $ANDROID_HOME/tools/sdkmanager --version || echo "tools/sdkmanager failed"
+        JAVA_OPTS="$JAVA_OPTS" $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version || echo "cmdline-tools/latest/bin/sdkmanager failed"
         
         # Clean previous build
         rm -rf .buildozer/android/app
@@ -148,10 +153,17 @@ jobs:
         export JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64
         export PATH=$JAVA_HOME/bin:$PATH
         
+        # Set Java options for buildozer
+        export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
+        
         echo "Final environment check:"
         echo "JAVA_HOME: $JAVA_HOME"
         echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "JAVA_OPTS: $JAVA_OPTS"
         java -version
+        
+        # Create necessary directories for Java preferences
+        mkdir -p /tmp/.java /tmp/.user
         
         # Build with maximum verbosity and debug output
         buildozer android debug --verbose --log-level 2
@@ -164,9 +176,12 @@ jobs:
         ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
         ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
         JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
+        JAVA_OPTS: "-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
         P4A_DEBUG: 1
         P4A_BOOTSTRAP: sdl2
         P4A_ARCH: arm64-v8a
+        P4A_NDK_VERSION: 26b
+        P4A_SDK_VERSION: 34
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
