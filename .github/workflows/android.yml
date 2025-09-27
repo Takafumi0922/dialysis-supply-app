@@ -23,6 +23,11 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git zip unzip openjdk-8-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo-dev cmake libffi-dev libssl-dev wget curl build-essential libffi-dev libssl-dev libxml2-dev libxslt1-dev libjpeg-dev libpng-dev libfreetype6-dev liblcms2-dev libwebp-dev libharfbuzz-dev libfribidi-dev libxcb1-dev
     
+    - name: Verify Git installation
+      run: |
+        git --version
+        which git
+    
     - name: Install Python dependencies
       run: |
         pip install buildozer cython
@@ -42,6 +47,7 @@ jobs:
     
     - name: Build APK
       run: |
+        export PATH=$PATH:/usr/bin:/bin
         buildozer android debug
       env:
         BUILD_DEBUG: 1
@@ -51,7 +57,7 @@ jobs:
         P4A_RELEASE_KEYALIAS_PASSWD: ""
         ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
         ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
-        PATH: $PATH:/home/runner/.buildozer/android/platform/android-sdk/tools:/home/runner/.buildozer/android/platform/android-sdk/platform-tools
+        PATH: $PATH:/home/runner/.buildozer/android/platform/android-sdk/tools:/home/runner/.buildozer/android/platform/android-sdk/platform-tools:/usr/bin:/bin
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
