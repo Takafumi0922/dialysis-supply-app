@@ -101,13 +101,17 @@ jobs:
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;31.0.0"
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
         
+        # 追加のbuild-toolsバージョンをインストール（AIDLツールの互換性のため）
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;28.0.3"
+        
         echo "=== インストールされたbuild-toolsの確認 ==="
         ls -la $ANDROID_HOME/build-tools/
         
         echo "=== AIDLツールの検索 ==="
         find $ANDROID_HOME -name "aidl" -type f -executable
         echo "=== 各build-toolsバージョンのAIDL ==="
-        for version in 33.0.2 32.0.0 31.0.0 30.0.3; do
+        for version in 33.0.2 32.0.0 31.0.0 30.0.3 29.0.3 28.0.3; do
           if [ -d "$ANDROID_HOME/build-tools/$version" ]; then
             echo "Build-tools $version:"
             ls -la $ANDROID_HOME/build-tools/$version/aidl* 2>/dev/null || echo "  AIDL not found in $version"
@@ -120,7 +124,7 @@ jobs:
         
         # AIDLツールのシンボリックリンクを作成（確実なアクセスのため）
         mkdir -p $ANDROID_HOME/tools
-        for version in 33.0.2 32.0.0 31.0.0 30.0.3; do
+        for version in 33.0.2 32.0.0 31.0.0 30.0.3 29.0.3 28.0.3; do
           if [ -f "$ANDROID_HOME/build-tools/$version/aidl" ]; then
             ln -sf $ANDROID_HOME/build-tools/$version/aidl $ANDROID_HOME/tools/aidl-$version
             echo "Created symlink: $ANDROID_HOME/tools/aidl-$version -> $ANDROID_HOME/build-tools/$version/aidl"
@@ -137,7 +141,7 @@ jobs:
         # 環境変数を永続化
         echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
-        echo "PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2:$ANDROID_HOME/build-tools/32.0.0:$ANDROID_HOME/build-tools/31.0.0:$ANDROID_HOME/build-tools/30.0.3:$ANDROID_HOME/tools" >> $GITHUB_ENV
+        echo "PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2:$ANDROID_HOME/build-tools/32.0.0:$ANDROID_HOME/build-tools/31.0.0:$ANDROID_HOME/build-tools/30.0.3:$ANDROID_HOME/build-tools/29.0.3:$ANDROID_HOME/build-tools/28.0.3:$ANDROID_HOME/tools" >> $GITHUB_ENV
         echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
 
     - name: Build APK with Buildozer
@@ -153,7 +157,7 @@ jobs:
         which aidl || echo "AIDL not found in PATH"
         find $ANDROID_HOME -name "aidl" -type f -executable
         echo "=== 利用可能なAIDLツール ==="
-        for version in 33.0.2 32.0.0 31.0.0 30.0.3; do
+        for version in 33.0.2 32.0.0 31.0.0 30.0.3 29.0.3 28.0.3; do
           if [ -f "$ANDROID_HOME/build-tools/$version/aidl" ]; then
             echo "Found AIDL in build-tools/$version: $ANDROID_HOME/build-tools/$version/aidl"
             $ANDROID_HOME/build-tools/$version/aidl --version 2>/dev/null || echo "  Version check failed"
