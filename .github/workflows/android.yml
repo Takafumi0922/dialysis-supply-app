@@ -24,23 +24,104 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y \
           openjdk-17-jdk \
+          git \
+          zip \
+          unzip \
+          wget \
+          curl \
           autoconf \
           automake \
           libtool \
           pkg-config \
           cmake \
           libffi-dev \
-          libssl-dev
+          libssl-dev \
+          zlib1g-dev \
+          libncurses5-dev \
+          libncursesw5-dev \
+          libtinfo-dev \
+          build-essential \
+          libxml2-dev \
+          libxslt1-dev \
+          libjpeg-dev \
+          libpng-dev \
+          libfreetype6-dev \
+          liblcms2-dev \
+          libwebp-dev \
+          libharfbuzz-dev \
+          libfribidi-dev \
+          libxcb1-dev \
+          m4
 
     - name: Install Python dependencies
       run: |
         pip install "cython<3.0"
         pip install buildozer
 
+    - name: Setup Android SDK
+      run: |
+        # Android SDK環境変数を設定
+        export ANDROID_HOME=$HOME/android-sdk
+        export ANDROID_SDK_ROOT=$ANDROID_HOME
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+        
+        # Java環境変数を設定
+        export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+        export PATH=$JAVA_HOME/bin:$PATH
+        
+        # Android SDKディレクトリを作成
+        mkdir -p $ANDROID_HOME
+        
+        # Command Line Toolsをダウンロード
+        cd $ANDROID_HOME
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -q commandlinetools-linux-11076708_latest.zip
+        rm commandlinetools-linux-11076708_latest.zip
+        
+        # cmdline-toolsディレクトリ構造を修正
+        mkdir -p cmdline-tools/latest
+        mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+        
+        # ライセンスを事前に受け入れ
+        mkdir -p licenses
+        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > licenses/android-sdk-license
+        echo "84831b9409646a918e30573bab4c9c91346d8abd" > licenses/android-sdk-preview-license
+        
+        # SDKコンポーネントをインストール
+        echo "=== SDKライセンスの受け入れ ==="
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+        
+        echo "=== 基本SDKコンポーネントのインストール ==="
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "ndk;26.1.10909125"
+        
+        echo "=== build-toolsのインストール ==="
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;32.0.0"
+        
+        echo "=== AIDLツールの確認 ==="
+        find $ANDROID_HOME -name "aidl" -type f -executable
+        ls -la $ANDROID_HOME/build-tools/*/aidl 2>/dev/null || echo "AIDL not found"
+        
+        # 環境変数を永続化
+        echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
+        echo "PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2:$ANDROID_HOME/build-tools/32.0.0" >> $GITHUB_ENV
+        echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+
     - name: Build APK with Buildozer
       env:
+        ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+        JAVA_HOME: ${{ env.JAVA_HOME }}
+        PATH: ${{ env.PATH }}
         ACCEPT_EULA: "Y"
       run: |
+        # AIDLツールの確認
+        echo "=== ビルド前のAIDLツール確認 ==="
+        which aidl || echo "AIDL not found in PATH"
+        find $ANDROID_HOME -name "aidl" -type f -executable
+        
+        # BuildozerでAPKをビルド
         buildozer android debug --verbose
 
     - name: Upload APK
