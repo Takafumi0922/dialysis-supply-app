@@ -95,17 +95,49 @@ jobs:
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "ndk;26.1.10909125"
         
         echo "=== build-toolsのインストール ==="
+        # 安定したbuild-toolsバージョンをインストール
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2"
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;32.0.0"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;31.0.0"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
         
-        echo "=== AIDLツールの確認 ==="
+        echo "=== インストールされたbuild-toolsの確認 ==="
+        ls -la $ANDROID_HOME/build-tools/
+        
+        echo "=== AIDLツールの検索 ==="
         find $ANDROID_HOME -name "aidl" -type f -executable
-        ls -la $ANDROID_HOME/build-tools/*/aidl 2>/dev/null || echo "AIDL not found"
+        echo "=== 各build-toolsバージョンのAIDL ==="
+        for version in 33.0.2 32.0.0 31.0.0 30.0.3; do
+          if [ -d "$ANDROID_HOME/build-tools/$version" ]; then
+            echo "Build-tools $version:"
+            ls -la $ANDROID_HOME/build-tools/$version/aidl* 2>/dev/null || echo "  AIDL not found in $version"
+            if [ -f "$ANDROID_HOME/build-tools/$version/aidl" ]; then
+              echo "  AIDL found: $ANDROID_HOME/build-tools/$version/aidl"
+              $ANDROID_HOME/build-tools/$version/aidl --version 2>/dev/null || echo "  Version check failed"
+            fi
+          fi
+        done
+        
+        # AIDLツールのシンボリックリンクを作成（確実なアクセスのため）
+        mkdir -p $ANDROID_HOME/tools
+        for version in 33.0.2 32.0.0 31.0.0 30.0.3; do
+          if [ -f "$ANDROID_HOME/build-tools/$version/aidl" ]; then
+            ln -sf $ANDROID_HOME/build-tools/$version/aidl $ANDROID_HOME/tools/aidl-$version
+            echo "Created symlink: $ANDROID_HOME/tools/aidl-$version -> $ANDROID_HOME/build-tools/$version/aidl"
+          fi
+        done
+        
+        # 最初に見つかったAIDLツールをデフォルトとして設定
+        AIDL_PATH=$(find $ANDROID_HOME -name "aidl" -type f -executable | head -1)
+        if [ -n "$AIDL_PATH" ]; then
+          ln -sf $AIDL_PATH $ANDROID_HOME/tools/aidl
+          echo "Default AIDL: $AIDL_PATH -> $ANDROID_HOME/tools/aidl"
+        fi
         
         # 環境変数を永続化
         echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
-        echo "PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2:$ANDROID_HOME/build-tools/32.0.0" >> $GITHUB_ENV
+        echo "PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2:$ANDROID_HOME/build-tools/32.0.0:$ANDROID_HOME/build-tools/31.0.0:$ANDROID_HOME/build-tools/30.0.3:$ANDROID_HOME/tools" >> $GITHUB_ENV
         echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
 
     - name: Build APK with Buildozer
@@ -116,10 +148,28 @@ jobs:
         PATH: ${{ env.PATH }}
         ACCEPT_EULA: "Y"
       run: |
-        # AIDLツールの確認
+        # AIDLツールの最終確認
         echo "=== ビルド前のAIDLツール確認 ==="
         which aidl || echo "AIDL not found in PATH"
         find $ANDROID_HOME -name "aidl" -type f -executable
+        echo "=== 利用可能なAIDLツール ==="
+        for version in 33.0.2 32.0.0 31.0.0 30.0.3; do
+          if [ -f "$ANDROID_HOME/build-tools/$version/aidl" ]; then
+            echo "Found AIDL in build-tools/$version: $ANDROID_HOME/build-tools/$version/aidl"
+            $ANDROID_HOME/build-tools/$version/aidl --version 2>/dev/null || echo "  Version check failed"
+          fi
+        done
+        
+        # シンボリックリンクの確認
+        echo "=== シンボリックリンクの確認 ==="
+        ls -la $ANDROID_HOME/tools/aidl* 2>/dev/null || echo "No symlinks found"
+        
+        # AIDLツールの実行テスト
+        echo "=== AIDLツールの実行テスト ==="
+        if [ -f "$ANDROID_HOME/tools/aidl" ]; then
+          echo "Testing default AIDL: $ANDROID_HOME/tools/aidl"
+          $ANDROID_HOME/tools/aidl --version 2>/dev/null || echo "Default AIDL test failed"
+        fi
         
         # BuildozerでAPKをビルド
         buildozer android debug --verbose
