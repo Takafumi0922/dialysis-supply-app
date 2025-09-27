@@ -92,19 +92,15 @@ jobs:
         # Install components with verbose output and proper Java options
         JAVA_OPTS="$JAVA_OPTS" $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --verbose "platform-tools" "platforms;android-34" "build-tools;34.0.0"
         
-        # Create proper wrapper scripts for buildozer compatibility
-        cat > tools/bin/sdkmanager << 'EOF'
-        #!/bin/bash
-        export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
-        exec "$(dirname "$0")/../cmdline-tools/latest/bin/sdkmanager" "$@"
-        EOF
+        # Create proper wrapper scripts for buildozer compatibility (use printf to avoid YAML/heredoc indentation issues)
+        printf '%s\n' '#!/bin/bash' \
+          'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
+          'exec "$(dirname "$0")/../cmdline-tools/latest/bin/sdkmanager" "$@"' > tools/bin/sdkmanager
         chmod +x tools/bin/sdkmanager
         
-        cat > tools/sdkmanager << 'EOF'
-        #!/bin/bash
-        export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
-        exec "$(dirname "$0")/cmdline-tools/latest/bin/sdkmanager" "$@"
-        EOF
+        printf '%s\n' '#!/bin/bash' \
+          'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
+          'exec "$(dirname "$0")/cmdline-tools/latest/bin/sdkmanager" "$@"' > tools/sdkmanager
         chmod +x tools/sdkmanager
         
         # Verify installation
