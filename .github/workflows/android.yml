@@ -137,14 +137,29 @@ jobs:
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
         
+        # 追加のbuild-toolsバージョンをインストール（AIDLツールの互換性のため）
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "build-tools;32.0.0" "build-tools;31.0.0"
+        
         # AIDLツールの場所を確認
+        echo "=== AIDLツールの検索 ==="
         find $ANDROID_HOME -name "aidl" -type f
-        ls -la $ANDROID_HOME/build-tools/*/aidl
+        echo "=== build-toolsディレクトリの内容 ==="
+        ls -la $ANDROID_HOME/build-tools/
+        echo "=== 各build-toolsバージョンのAIDL ==="
+        for version in 34.0.0 33.0.2 32.0.0 31.0.0; do
+          if [ -d "$ANDROID_HOME/build-tools/$version" ]; then
+            echo "Build-tools $version:"
+            ls -la $ANDROID_HOME/build-tools/$version/aidl* 2>/dev/null || echo "  AIDL not found in $version"
+          fi
+        done
+        
+        # AIDLツールをPATHに追加
+        export PATH=$PATH:$ANDROID_HOME/build-tools/34.0.0:$ANDROID_HOME/build-tools/33.0.2:$ANDROID_HOME/build-tools/32.0.0:$ANDROID_HOME/build-tools/31.0.0
         
         # 環境変数を永続化
         echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
-        echo "PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools" >> $GITHUB_ENV
+        echo "PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0:$ANDROID_HOME/build-tools/33.0.2:$ANDROID_HOME/build-tools/32.0.0:$ANDROID_HOME/build-tools/31.0.0" >> $GITHUB_ENV
         echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
 
     - name: Build APK with Buildozer
@@ -155,6 +170,19 @@ jobs:
         PATH: ${{ env.PATH }}
         ACCEPT_EULA: "Y"
       run: |
+        # AIDLツールの最終確認
+        echo "=== ビルド前のAIDLツール確認 ==="
+        which aidl || echo "AIDL not found in PATH"
+        find $ANDROID_HOME -name "aidl" -type f -executable
+        echo "=== 利用可能なAIDLツール ==="
+        for version in 34.0.0 33.0.2 32.0.0 31.0.0; do
+          if [ -f "$ANDROID_HOME/build-tools/$version/aidl" ]; then
+            echo "Found AIDL in build-tools/$version: $ANDROID_HOME/build-tools/$version/aidl"
+            $ANDROID_HOME/build-tools/$version/aidl --version 2>/dev/null || echo "  Version check failed"
+          fi
+        done
+        
+        # BuildozerでAPKをビルド
         buildozer android debug --verbose
 
     - name: Upload APK
