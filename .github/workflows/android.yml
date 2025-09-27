@@ -104,17 +104,17 @@ jobs:
         
         # Create wrapper scripts for buildozer compatibility
         cat > tools/bin/sdkmanager << 'EOF'
-#!/bin/bash
-export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
-exec "$(dirname "$0")/../cmdline-tools/latest/bin/sdkmanager" "$@"
-EOF
+        #!/bin/bash
+        export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
+        exec "$(dirname "$0")/../cmdline-tools/latest/bin/sdkmanager" "$@"
+        EOF
         chmod +x tools/bin/sdkmanager
         
         cat > tools/sdkmanager << 'EOF'
-#!/bin/bash
-export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
-exec "$(dirname "$0")/cmdline-tools/latest/bin/sdkmanager" "$@"
-EOF
+        #!/bin/bash
+        export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
+        exec "$(dirname "$0")/cmdline-tools/latest/bin/sdkmanager" "$@"
+        EOF
         chmod +x tools/sdkmanager
         
         # Verify installation
