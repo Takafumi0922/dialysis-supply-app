@@ -11,7 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
     
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -32,7 +33,7 @@ jobs:
       run: |
         pip install buildozer cython
     
-    - name: Create buildozer.spec if not exists
+    - name: Configure buildozer
       run: |
         if [ ! -f buildozer.spec ]; then
           buildozer init
@@ -60,12 +61,8 @@ jobs:
         mkdir -p cmdline-tools/latest
         mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
         
-        # Create legacy tools directory for buildozer compatibility
+        # Create legacy tools directory structure for buildozer compatibility
         mkdir -p tools/bin
-        cp cmdline-tools/latest/bin/sdkmanager tools/bin/sdkmanager
-        cp cmdline-tools/latest/bin/avdmanager tools/bin/avdmanager
-        chmod +x tools/bin/sdkmanager
-        chmod +x tools/bin/avdmanager
         
         # Accept licenses
         mkdir -p licenses
@@ -95,26 +92,19 @@ jobs:
         # Install components with verbose output and proper Java options
         JAVA_OPTS="$JAVA_OPTS" $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --verbose "platform-tools" "platforms;android-34" "build-tools;34.0.0"
         
-        # Create additional tools for buildozer compatibility
-        mkdir -p tools
-        cp cmdline-tools/latest/bin/sdkmanager tools/sdkmanager
-        cp cmdline-tools/latest/bin/avdmanager tools/avdmanager
-        chmod +x tools/sdkmanager
-        chmod +x tools/avdmanager
-        
-        # Create wrapper scripts for buildozer compatibility
+        # Create proper wrapper scripts for buildozer compatibility
         cat > tools/bin/sdkmanager << 'EOF'
-        #!/bin/bash
-        export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
-        exec "$(dirname "$0")/../cmdline-tools/latest/bin/sdkmanager" "$@"
-        EOF
+#!/bin/bash
+export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
+exec "$(dirname "$0")/../cmdline-tools/latest/bin/sdkmanager" "$@"
+EOF
         chmod +x tools/bin/sdkmanager
         
         cat > tools/sdkmanager << 'EOF'
-        #!/bin/bash
-        export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
-        exec "$(dirname "$0")/cmdline-tools/latest/bin/sdkmanager" "$@"
-        EOF
+#!/bin/bash
+export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
+exec "$(dirname "$0")/cmdline-tools/latest/bin/sdkmanager" "$@"
+EOF
         chmod +x tools/sdkmanager
         
         # Verify installation
@@ -134,37 +124,9 @@ jobs:
         export PATH=$PATH:/usr/bin:/bin
         export ANDROID_HOME=/home/runner/.buildozer/android/platform/android-sdk
         export ANDROID_SDK_ROOT=/home/runner/.buildozer/android/platform/android-sdk
+        export ANDROID_SDK_HOME=/home/runner/.buildozer/android/platform/android-sdk
+        export ANDROID_USER_HOME=/tmp/.android
         export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/tools
-        
-        # Verify tools are accessible
-        echo "=== Final SDK Verification ==="
-        echo "ANDROID_HOME: $ANDROID_HOME"
-        echo "PATH: $PATH"
-        echo "Checking sdkmanager locations..."
-        ls -la $ANDROID_HOME/tools/bin/sdkmanager || echo "tools/bin/sdkmanager not found"
-        ls -la $ANDROID_HOME/tools/sdkmanager || echo "tools/sdkmanager not found"
-        ls -la $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager || echo "cmdline-tools/latest/bin/sdkmanager not found"
-        which sdkmanager || echo "sdkmanager not in PATH"
-        
-        # Test sdkmanager execution with proper Java options
-        echo "Testing sdkmanager execution..."
-        echo "File types:"
-        file $ANDROID_HOME/tools/bin/sdkmanager
-        file $ANDROID_HOME/tools/sdkmanager
-        file $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
-        echo "Permissions:"
-        ls -la $ANDROID_HOME/tools/bin/sdkmanager
-        ls -la $ANDROID_HOME/tools/sdkmanager
-        ls -la $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
-        echo "Wrapper script contents:"
-        head -5 $ANDROID_HOME/tools/bin/sdkmanager
-        echo "Version tests with wrapper scripts:"
-        $ANDROID_HOME/tools/bin/sdkmanager --version || echo "tools/bin/sdkmanager failed"
-        $ANDROID_HOME/tools/sdkmanager --version || echo "tools/sdkmanager failed"
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version || echo "cmdline-tools/latest/bin/sdkmanager failed"
-        
-        # Clean previous build
-        rm -rf .buildozer/android/app
         
         # Set Java version for buildozer (use Java 17 for compatibility)
         export JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64
@@ -180,14 +142,16 @@ jobs:
         java -version
         
         # Create necessary directories for Java preferences
-        mkdir -p /tmp/.java /tmp/.user
+        mkdir -p /tmp/.java /tmp/.user $ANDROID_USER_HOME
         
-        # Set additional environment variables for buildozer
-        export ANDROID_SDK_HOME=$ANDROID_HOME
-        export ANDROID_USER_HOME=/tmp/.android
+        # Test sdkmanager execution
+        echo "Testing sdkmanager execution..."
+        $ANDROID_HOME/tools/bin/sdkmanager --version || echo "tools/bin/sdkmanager failed"
+        $ANDROID_HOME/tools/sdkmanager --version || echo "tools/sdkmanager failed"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version || echo "cmdline-tools/latest/bin/sdkmanager failed"
         
-        # Create Android user home directory
-        mkdir -p $ANDROID_USER_HOME
+        # Clean previous build
+        rm -rf .buildozer/android/app
         
         # Build with maximum verbosity and debug output
         buildozer android debug --verbose --log-level 2
@@ -213,4 +177,3 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: bin/*.apk
