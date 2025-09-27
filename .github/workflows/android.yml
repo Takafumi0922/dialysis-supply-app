@@ -60,8 +60,10 @@ jobs:
         
         # Create legacy tools directory for buildozer compatibility
         mkdir -p tools/bin
-        ln -sf ../cmdline-tools/latest/bin/sdkmanager tools/bin/sdkmanager
-        ln -sf ../cmdline-tools/latest/bin/avdmanager tools/bin/avdmanager
+        cp cmdline-tools/latest/bin/sdkmanager tools/bin/sdkmanager
+        cp cmdline-tools/latest/bin/avdmanager tools/bin/avdmanager
+        chmod +x tools/bin/sdkmanager
+        chmod +x tools/bin/avdmanager
         
         # Accept licenses
         mkdir -p licenses
@@ -77,10 +79,12 @@ jobs:
         yes | sdkmanager --licenses
         sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
         
-        # Create additional symlinks for buildozer compatibility
+        # Create additional tools for buildozer compatibility
         mkdir -p tools
-        ln -sf ../cmdline-tools/latest/bin/sdkmanager tools/sdkmanager
-        ln -sf ../cmdline-tools/latest/bin/avdmanager tools/avdmanager
+        cp cmdline-tools/latest/bin/sdkmanager tools/sdkmanager
+        cp cmdline-tools/latest/bin/avdmanager tools/avdmanager
+        chmod +x tools/sdkmanager
+        chmod +x tools/avdmanager
         
         # Verify installation
         echo "=== SDK Structure ==="
@@ -113,6 +117,15 @@ jobs:
         
         # Test sdkmanager execution
         echo "Testing sdkmanager execution..."
+        echo "File types:"
+        file $ANDROID_HOME/tools/bin/sdkmanager
+        file $ANDROID_HOME/tools/sdkmanager
+        file $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
+        echo "Permissions:"
+        ls -la $ANDROID_HOME/tools/bin/sdkmanager
+        ls -la $ANDROID_HOME/tools/sdkmanager
+        ls -la $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
+        echo "Version tests:"
         $ANDROID_HOME/tools/bin/sdkmanager --version || echo "tools/bin/sdkmanager failed"
         $ANDROID_HOME/tools/sdkmanager --version || echo "tools/sdkmanager failed"
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version || echo "cmdline-tools/latest/bin/sdkmanager failed"
