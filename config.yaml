@@ -1,0 +1,26 @@
+# 透析供給装置薬液補充アプリ 設定ファイル
+
+# カメラ設定
+camera:
+  device_id: 0
+  width: 640
+  height: 480
+  fps: 30
+
+# UI設定
+ui:
+  window_width: 800
+  window_height: 600
+  title: "透析供給装置薬液補充アプリ"
+
+# 音声設定
+audio:
+  success_sound: "sounds/success.wav"
+  error_sound: "sounds/error.wav"
+  volume: 0.8
+
+# モデル設定（将来用）
+model:
+  path: "models/best.pt"
+  confidence_threshold: 0.5
+  nms_threshold: 0.4
