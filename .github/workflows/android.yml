@@ -153,6 +153,10 @@ jobs:
         # Clean previous build
         rm -rf .buildozer/android/app
         
+        # Pre-install SDK components to avoid sdkmanager issues during build
+        echo "Pre-installing SDK components..."
+        JAVA_OPTS="$JAVA_OPTS" $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" || echo "SDK components already installed"
+        
         # Build with maximum verbosity and debug output
         buildozer android debug --verbose --log-level 2
       env:

@@ -44,7 +44,7 @@ android.minapi = 21
 android.ndk = 26b
 
 # (str) Android SDK version to use
-android.sdk = 34
+# android.sdk = 34  # Deprecated, using p4a.sdk_version instead
 
 # (bool) Use --private data storage (True) or --dir public storage (False)
 android.private_storage = True
