@@ -23,7 +23,7 @@ version = 1.0
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,kivymd,opencv-python,numpy,Pillow,PyYAML,plyer,kivy[base]
+requirements = python3,kivy,kivymd,opencv-python,numpy,Pillow,PyYAML,plyer
 
 # (str) Supported orientation (landscape, sensorLandscape, sensor or portrait)
 orientation = portrait
