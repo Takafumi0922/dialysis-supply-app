@@ -102,6 +102,21 @@ jobs:
         chmod +x tools/sdkmanager
         chmod +x tools/avdmanager
         
+        # Create wrapper scripts for buildozer compatibility
+        cat > tools/bin/sdkmanager << 'EOF'
+#!/bin/bash
+export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
+exec "$(dirname "$0")/../cmdline-tools/latest/bin/sdkmanager" "$@"
+EOF
+        chmod +x tools/bin/sdkmanager
+        
+        cat > tools/sdkmanager << 'EOF'
+#!/bin/bash
+export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
+exec "$(dirname "$0")/cmdline-tools/latest/bin/sdkmanager" "$@"
+EOF
+        chmod +x tools/sdkmanager
+        
         # Verify installation
         echo "=== SDK Structure ==="
         ls -la $ANDROID_HOME/
@@ -141,10 +156,12 @@ jobs:
         ls -la $ANDROID_HOME/tools/bin/sdkmanager
         ls -la $ANDROID_HOME/tools/sdkmanager
         ls -la $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
-        echo "Version tests with Java options:"
-        JAVA_OPTS="$JAVA_OPTS" $ANDROID_HOME/tools/bin/sdkmanager --version || echo "tools/bin/sdkmanager failed"
-        JAVA_OPTS="$JAVA_OPTS" $ANDROID_HOME/tools/sdkmanager --version || echo "tools/sdkmanager failed"
-        JAVA_OPTS="$JAVA_OPTS" $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version || echo "cmdline-tools/latest/bin/sdkmanager failed"
+        echo "Wrapper script contents:"
+        head -5 $ANDROID_HOME/tools/bin/sdkmanager
+        echo "Version tests with wrapper scripts:"
+        $ANDROID_HOME/tools/bin/sdkmanager --version || echo "tools/bin/sdkmanager failed"
+        $ANDROID_HOME/tools/sdkmanager --version || echo "tools/sdkmanager failed"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version || echo "cmdline-tools/latest/bin/sdkmanager failed"
         
         # Clean previous build
         rm -rf .buildozer/android/app
@@ -165,6 +182,13 @@ jobs:
         # Create necessary directories for Java preferences
         mkdir -p /tmp/.java /tmp/.user
         
+        # Set additional environment variables for buildozer
+        export ANDROID_SDK_HOME=$ANDROID_HOME
+        export ANDROID_USER_HOME=/tmp/.android
+        
+        # Create Android user home directory
+        mkdir -p $ANDROID_USER_HOME
+        
         # Build with maximum verbosity and debug output
         buildozer android debug --verbose --log-level 2
       env:
@@ -175,6 +199,8 @@ jobs:
         P4A_RELEASE_KEYALIAS_PASSWD: ""
         ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
         ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
+        ANDROID_SDK_HOME: /home/runner/.buildozer/android/platform/android-sdk
+        ANDROID_USER_HOME: /tmp/.android
         JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
         JAVA_OPTS: "-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
         P4A_DEBUG: 1
