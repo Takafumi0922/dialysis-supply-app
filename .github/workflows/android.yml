@@ -76,8 +76,19 @@ jobs:
         # Install SDK components
         export ANDROID_HOME=/home/runner/.buildozer/android/platform/android-sdk
         export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
-        yes | sdkmanager --licenses
-        sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+        export JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64
+        export PATH=$JAVA_HOME/bin:$PATH
+        
+        echo "Using Java version:"
+        java -version
+        echo "Using sdkmanager version:"
+        sdkmanager --version
+        
+        # Accept licenses with timeout
+        timeout 60 sh -c 'yes | sdkmanager --licenses' || echo "License acceptance timed out"
+        
+        # Install components with verbose output
+        sdkmanager --verbose "platform-tools" "platforms;android-34" "build-tools;34.0.0"
         
         # Create additional tools for buildozer compatibility
         mkdir -p tools
@@ -133,8 +144,17 @@ jobs:
         # Clean previous build
         rm -rf .buildozer/android/app
         
-        # Build with verbose output
-        buildozer android debug --verbose
+        # Set Java version for buildozer
+        export JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64
+        export PATH=$JAVA_HOME/bin:$PATH
+        
+        echo "Final environment check:"
+        echo "JAVA_HOME: $JAVA_HOME"
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        java -version
+        
+        # Build with maximum verbosity and debug output
+        buildozer android debug --verbose --log-level 2
       env:
         BUILD_DEBUG: 1
         P4A_RELEASE_KEYSTORE: ""
@@ -143,7 +163,10 @@ jobs:
         P4A_RELEASE_KEYALIAS_PASSWD: ""
         ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
         ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
+        JAVA_HOME: /usr/lib/jvm/temurin-8-jdk-amd64
         P4A_DEBUG: 1
+        P4A_BOOTSTRAP: sdl2
+        P4A_ARCH: arm64-v8a
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
