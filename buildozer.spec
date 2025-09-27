@@ -13,7 +13,7 @@ package.domain = org.dialysis.supply
 source.dir = .
 
 # (str) Application entry point
-source.main = run_android_english.py
+source.main = main.py
 
 # (list) Source files to include (let empty to include all the files)
 source.include_exts = py,png,jpg,kv,atlas,yaml
@@ -23,7 +23,7 @@ version = 1.0
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,kivymd,opencv-python,numpy,Pillow,PyYAML,plyer
+requirements = python3,kivy,kivymd,opencv-python,numpy,Pillow,PyYAML,plyer,pyjnius
 
 # (str) Supported orientation (landscape, sensorLandscape, sensor or portrait)
 orientation = portrait
