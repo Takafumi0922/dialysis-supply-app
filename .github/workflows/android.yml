@@ -95,13 +95,13 @@ jobs:
         # Create proper wrapper scripts for buildozer compatibility (use printf to avoid YAML/heredoc indentation issues)
         printf '%s\n' '#!/bin/bash' \
           'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
-          'SDKROOT="$(cd "$(dirname "$0")/.." && pwd)"' \
+          'SDKROOT="$(cd "$(dirname "$0")/../.." && pwd)"' \
           'exec "$SDKROOT/cmdline-tools/latest/bin/sdkmanager" "$@"' > tools/bin/sdkmanager
         chmod +x tools/bin/sdkmanager
         
         printf '%s\n' '#!/bin/bash' \
           'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
-          'SDKROOT="$(cd "$(dirname "$0")" && pwd)"' \
+          'SDKROOT="$(cd "$(dirname "$0")/.." && pwd)"' \
           'exec "$SDKROOT/cmdline-tools/latest/bin/sdkmanager" "$@"' > tools/sdkmanager
         chmod +x tools/sdkmanager
         
