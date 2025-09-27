@@ -19,7 +19,6 @@ jobs:
       with:
         python-version: '3.10'
 
-    # buildozerと、ライブラリのコンパイルに必要な最小限のツールのみをインストール
     - name: Install system dependencies
       run: |
         sudo apt-get update
@@ -33,21 +32,18 @@ jobs:
           libffi-dev \
           libssl-dev
 
-    # Pythonの依存関係をインストール
     - name: Install Python dependencies
       run: |
         pip install "cython<3.0"
         pip install buildozer
 
-    # buildozerを実行。SDK/NDKのダウンロード、設定、ライセンス同意、ビルドの全てを自動で行う
     - name: Build APK with Buildozer
       env:
-        # この一行が、対話的なライセンス同意プロンプトをスキップさせる
+        # ✅ この一行がライセンスに自動同意します
         ACCEPT_EULA: "Y"
       run: |
         buildozer android debug --verbose
 
-    # 完成したAPKをアーティファクトとしてアップロード
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
