@@ -39,7 +39,6 @@ jobs:
 
     - name: Build APK with Buildozer
       env:
-        # ✅ この一行がライセンスに自動同意します
         ACCEPT_EULA: "Y"
       run: |
         buildozer android debug --verbose
