@@ -45,23 +45,38 @@ jobs:
         sed -i 's/android.api = 33/android.api = 34/' buildozer.spec
         sed -i 's/android.ndk = 25b/android.ndk = 26b/' buildozer.spec
     
-    - name: Accept Android SDK licenses
+    - name: Setup Android SDK manually
       run: |
-        mkdir -p /home/runner/.buildozer/android/platform/android-sdk/licenses
-        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > /home/runner/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-        echo "84831b9409646a918e30573bab4c9c91346d8abd" > /home/runner/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
-        echo "d975f751698a77b662f1254ddbeed3901e976f5a" > /home/runner/.buildozer/android/platform/android-sdk/licenses/android-googletv-license
-        echo "33b6a2b64607f11b759f320ef9dff4ae5c47d5da" > /home/runner/.buildozer/android/platform/android-sdk/licenses/android-sdk-arm-dbt-license
-        echo "d56f5187479451eabf01fb78af6dfcb131a6481e" > /home/runner/.buildozer/android/platform/android-sdk/licenses/android-sdk-system-images-license
-        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > /home/runner/.buildozer/android/platform/android-sdk/licenses/android-sdk-license.txt
-        echo "84831b9409646a918e30573bab4c9c91346d8abd" > /home/runner/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license.txt
-        echo "d975f751698a77b662f1254ddbeed3901e976f5a" > /home/runner/.buildozer/android/platform/android-sdk/licenses/android-googletv-license.txt
-        echo "33b6a2b64607f11b759f320ef9dff4ae5c47d5da" > /home/runner/.buildozer/android/platform/android-sdk/licenses/android-sdk-arm-dbt-license.txt
-        echo "d56f5187479451eabf01fb78af6dfcb131a6481e" > /home/runner/.buildozer/android/platform/android-sdk/licenses/android-sdk-system-images-license.txt
+        # Create Android SDK directory
+        mkdir -p /home/runner/.buildozer/android/platform/android-sdk
+        
+        # Download and install Android SDK command line tools
+        cd /home/runner/.buildozer/android/platform/android-sdk
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -q commandlinetools-linux-11076708_latest.zip
+        mkdir -p cmdline-tools/latest
+        mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+        
+        # Accept licenses
+        mkdir -p licenses
+        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > licenses/android-sdk-license
+        echo "84831b9409646a918e30573bab4c9c91346d8abd" > licenses/android-sdk-preview-license
+        echo "d975f751698a77b662f1254ddbeed3901e976f5a" > licenses/android-googletv-license
+        echo "33b6a2b64607f11b759f320ef9dff4ae5c47d5da" > licenses/android-sdk-arm-dbt-license
+        echo "d56f5187479451eabf01fb78af6dfcb131a6481e" > licenses/android-sdk-system-images-license
+        
+        # Install SDK components
+        export ANDROID_HOME=/home/runner/.buildozer/android/platform/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+        yes | sdkmanager --licenses
+        sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
     
     - name: Build APK
       run: |
         export PATH=$PATH:/usr/bin:/bin
+        export ANDROID_HOME=/home/runner/.buildozer/android/platform/android-sdk
+        export ANDROID_SDK_ROOT=/home/runner/.buildozer/android/platform/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
         buildozer android debug
       env:
         BUILD_DEBUG: 1
@@ -71,7 +86,6 @@ jobs:
         P4A_RELEASE_KEYALIAS_PASSWD: ""
         ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
         ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
-        PATH: $PATH:/home/runner/.buildozer/android/platform/android-sdk/tools:/home/runner/.buildozer/android/platform/android-sdk/platform-tools:/usr/bin:/bin
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
