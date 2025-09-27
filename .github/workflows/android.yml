@@ -44,6 +44,7 @@ jobs:
         sed -i 's/source.main = main.py/source.main = run_android_english.py/' buildozer.spec
         sed -i 's/android.api = 33/android.api = 34/' buildozer.spec
         sed -i 's/android.ndk = 25b/android.ndk = 26b/' buildozer.spec
+        sed -i 's/android.sdk = 33/android.sdk = 34/' buildozer.spec
     
     - name: Setup Android SDK manually
       run: |
@@ -56,6 +57,11 @@ jobs:
         unzip -q commandlinetools-linux-11076708_latest.zip
         mkdir -p cmdline-tools/latest
         mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+        
+        # Create legacy tools directory for buildozer compatibility
+        mkdir -p tools/bin
+        ln -sf ../cmdline-tools/latest/bin/sdkmanager tools/bin/sdkmanager
+        ln -sf ../cmdline-tools/latest/bin/avdmanager tools/bin/avdmanager
         
         # Accept licenses
         mkdir -p licenses
@@ -70,14 +76,29 @@ jobs:
         export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
         yes | sdkmanager --licenses
         sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+        
+        # Verify installation
+        ls -la $ANDROID_HOME/tools/bin/
+        ls -la $ANDROID_HOME/platform-tools/
+        ls -la $ANDROID_HOME/build-tools/
     
     - name: Build APK
       run: |
         export PATH=$PATH:/usr/bin:/bin
         export ANDROID_HOME=/home/runner/.buildozer/android/platform/android-sdk
         export ANDROID_SDK_ROOT=/home/runner/.buildozer/android/platform/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
-        buildozer android debug
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/tools/bin
+        
+        # Verify tools are accessible
+        echo "Checking sdkmanager..."
+        ls -la $ANDROID_HOME/tools/bin/sdkmanager || echo "sdkmanager not found"
+        which sdkmanager || echo "sdkmanager not in PATH"
+        
+        # Clean previous build
+        rm -rf .buildozer/android/app
+        
+        # Build with verbose output
+        buildozer android debug --verbose
       env:
         BUILD_DEBUG: 1
         P4A_RELEASE_KEYSTORE: ""
@@ -86,6 +107,7 @@ jobs:
         P4A_RELEASE_KEYALIAS_PASSWD: ""
         ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
         ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
+        P4A_DEBUG: 1
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
