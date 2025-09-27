@@ -37,6 +37,8 @@ jobs:
       run: |
         sed -i 's/requirements = python3,kivy/requirements = python3,kivy,kivymd,opencv-python,numpy,Pillow,PyYAML,plyer/' buildozer.spec
         sed -i 's/source.main = main.py/source.main = run_android_english.py/' buildozer.spec
+        sed -i 's/android.api = 33/android.api = 34/' buildozer.spec
+        sed -i 's/android.ndk = 25b/android.ndk = 26b/' buildozer.spec
     
     - name: Build APK
       run: |
@@ -47,6 +49,9 @@ jobs:
         P4A_RELEASE_KEYALIAS: ""
         P4A_RELEASE_KEYSTORE_PASSWD: ""
         P4A_RELEASE_KEYALIAS_PASSWD: ""
+        ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
+        ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
+        PATH: $PATH:/home/runner/.buildozer/android/platform/android-sdk/tools:/home/runner/.buildozer/android/platform/android-sdk/platform-tools
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
