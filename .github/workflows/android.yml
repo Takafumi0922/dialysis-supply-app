@@ -77,9 +77,21 @@ jobs:
         yes | sdkmanager --licenses
         sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
         
+        # Create additional symlinks for buildozer compatibility
+        mkdir -p tools
+        ln -sf ../cmdline-tools/latest/bin/sdkmanager tools/sdkmanager
+        ln -sf ../cmdline-tools/latest/bin/avdmanager tools/avdmanager
+        
         # Verify installation
+        echo "=== SDK Structure ==="
+        ls -la $ANDROID_HOME/
+        echo "=== Tools Directory ==="
+        ls -la $ANDROID_HOME/tools/
+        echo "=== Tools/bin Directory ==="
         ls -la $ANDROID_HOME/tools/bin/
+        echo "=== Platform Tools ==="
         ls -la $ANDROID_HOME/platform-tools/
+        echo "=== Build Tools ==="
         ls -la $ANDROID_HOME/build-tools/
     
     - name: Build APK
@@ -87,12 +99,23 @@ jobs:
         export PATH=$PATH:/usr/bin:/bin
         export ANDROID_HOME=/home/runner/.buildozer/android/platform/android-sdk
         export ANDROID_SDK_ROOT=/home/runner/.buildozer/android/platform/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/tools/bin
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/tools
         
         # Verify tools are accessible
-        echo "Checking sdkmanager..."
-        ls -la $ANDROID_HOME/tools/bin/sdkmanager || echo "sdkmanager not found"
+        echo "=== Final SDK Verification ==="
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "PATH: $PATH"
+        echo "Checking sdkmanager locations..."
+        ls -la $ANDROID_HOME/tools/bin/sdkmanager || echo "tools/bin/sdkmanager not found"
+        ls -la $ANDROID_HOME/tools/sdkmanager || echo "tools/sdkmanager not found"
+        ls -la $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager || echo "cmdline-tools/latest/bin/sdkmanager not found"
         which sdkmanager || echo "sdkmanager not in PATH"
+        
+        # Test sdkmanager execution
+        echo "Testing sdkmanager execution..."
+        $ANDROID_HOME/tools/bin/sdkmanager --version || echo "tools/bin/sdkmanager failed"
+        $ANDROID_HOME/tools/sdkmanager --version || echo "tools/sdkmanager failed"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version || echo "cmdline-tools/latest/bin/sdkmanager failed"
         
         # Clean previous build
         rm -rf .buildozer/android/app
