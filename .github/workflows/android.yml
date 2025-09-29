@@ -45,10 +45,15 @@ jobs:
         unzip -q commandlinetools-linux-11076708_latest.zip
         rm commandlinetools-linux-11076708_latest.zip
         
-        # Verify the downloaded structure
-        echo "Checking cmdline-tools structure:"
+        # Create the expected directory structure for sdkmanager
+        mkdir -p cmdline-tools/latest
+        mv cmdline-tools/bin cmdline-tools/lib cmdline-tools/NOTICE.txt cmdline-tools/source.properties cmdline-tools/latest/
+        
+        # Verify the restructured directory
+        echo "Checking restructured cmdline-tools:"
         ls -la cmdline-tools/
-        ls -la cmdline-tools/bin/
+        ls -la cmdline-tools/latest/
+        ls -la cmdline-tools/latest/bin/
         
         # Create legacy tools directory structure for buildozer compatibility
         mkdir -p tools/bin tools
@@ -56,26 +61,26 @@ jobs:
         # Always create wrapper scripts (more reliable than copying)
         SDK_ROOT_PATH="/home/runner/.buildozer/android/platform/android-sdk"
         
-        # Create sdkmanager wrapper scripts (use direct bin path)
+        # Create sdkmanager wrapper scripts (use latest path as expected)
         printf '%s\n' '#!/bin/bash' \
           'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
-          "exec \"$SDK_ROOT_PATH/cmdline-tools/bin/sdkmanager\" \"\$@\"" > tools/bin/sdkmanager
+          "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/sdkmanager\" \"\$@\"" > tools/bin/sdkmanager
         chmod +x tools/bin/sdkmanager
         
         printf '%s\n' '#!/bin/bash' \
           'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
-          "exec \"$SDK_ROOT_PATH/cmdline-tools/bin/sdkmanager\" \"\$@\"" > tools/sdkmanager
+          "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/sdkmanager\" \"\$@\"" > tools/sdkmanager
         chmod +x tools/sdkmanager
         
-        # Create avdmanager wrapper scripts (use direct bin path)
+        # Create avdmanager wrapper scripts (use latest path as expected)
         printf '%s\n' '#!/bin/bash' \
           'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
-          "exec \"$SDK_ROOT_PATH/cmdline-tools/bin/avdmanager\" \"\$@\"" > tools/bin/avdmanager
+          "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/avdmanager\" \"\$@\"" > tools/bin/avdmanager
         chmod +x tools/bin/avdmanager
         
         printf '%s\n' '#!/bin/bash' \
           'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
-          "exec \"$SDK_ROOT_PATH/cmdline-tools/bin/avdmanager\" \"\$@\"" > tools/avdmanager
+          "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/avdmanager\" \"\$@\"" > tools/avdmanager
         chmod +x tools/avdmanager
         
         # Verify wrapper scripts
@@ -92,15 +97,15 @@ jobs:
         JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
         JAVA_OPTS: "-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
       run: |
-        # Accept all licenses automatically (use direct bin path)
-        echo "y" | yes | $ANDROID_HOME/cmdline-tools/bin/sdkmanager --licenses || true
+        # Accept all licenses automatically (use latest path as expected)
+        echo "y" | yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
         
-        # Install required SDK components (use direct bin path)
-        $ANDROID_HOME/cmdline-tools/bin/sdkmanager "platform-tools"
-        $ANDROID_HOME/cmdline-tools/bin/sdkmanager "platforms;android-34"
-        $ANDROID_HOME/cmdline-tools/bin/sdkmanager "build-tools;34.0.0"
-        $ANDROID_HOME/cmdline-tools/bin/sdkmanager "build-tools;33.0.2"
-        $ANDROID_HOME/cmdline-tools/bin/sdkmanager "build-tools;30.0.3"
+        # Install required SDK components (use latest path as expected)
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
 
     - name: Fix libffi autotools compatibility
       run: |
