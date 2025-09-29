@@ -76,9 +76,6 @@ android.archs = arm64-v8a, armeabi-v7a
 # (int) Log level (0 = error only, 1 = info, 2 = debug (with command output))
 log_level = 2
 
-# (str) The Android arch to build for
-android.archs = arm64-v8a
-
 # (str) Python-for-Android bootstrap to use
 p4a.bootstrap = sdl2
 

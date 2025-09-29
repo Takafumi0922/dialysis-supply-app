@@ -22,26 +22,166 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          openjdk-17-jdk \
-          autoconf \
-          automake \
-          libtool \
-          pkg-config \
-          cmake \
-          libffi-dev \
-          libssl-dev
+        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo-dev cmake libffi-dev libssl-dev wget curl build-essential libffi-dev libssl-dev libxml2-dev libxslt1-dev libjpeg-dev libpng-dev libfreetype6-dev liblcms2-dev libwebp-dev libharfbuzz-dev libfribidi-dev libxcb1-dev automake m4
 
     - name: Install Python dependencies
       run: |
         pip install "cython<3.0"
         pip install buildozer
 
+    - name: Initialize buildozer
+      run: |
+        buildozer init
+
+    - name: Accept Android SDK licenses
+      run: |
+        mkdir -p /tmp/.java /tmp/.user
+        echo "y" | yes | sdkmanager --licenses || true
+
+    - name: Setup Android SDK manually
+      run: |
+        # Create Android SDK directory
+        mkdir -p /home/runner/.buildozer/android/platform/android-sdk
+        
+        # Download and install command-line tools
+        cd /home/runner/.buildozer/android/platform/android-sdk
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -q commandlinetools-linux-11076708_latest.zip
+        rm commandlinetools-linux-11076708_latest.zip
+        
+        # Create legacy tools directory structure for buildozer compatibility
+        mkdir -p tools/bin tools
+        cp cmdline-tools/latest/bin/sdkmanager tools/bin/sdkmanager
+        cp cmdline-tools/latest/bin/avdmanager tools/bin/avdmanager
+        cp cmdline-tools/latest/bin/sdkmanager tools/sdkmanager
+        cp cmdline-tools/latest/bin/avdmanager tools/avdmanager
+        chmod +x tools/bin/sdkmanager tools/bin/avdmanager tools/sdkmanager tools/avdmanager
+        
+        # Create proper wrapper scripts for buildozer compatibility (use printf to avoid YAML/heredoc indentation issues)
+        SDK_ROOT_PATH="/home/runner/.buildozer/android/platform/android-sdk"
+        printf '%s\n' '#!/bin/bash' \
+          'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
+          "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/sdkmanager\" \"\$@\"" > tools/bin/sdkmanager
+        chmod +x tools/bin/sdkmanager
+        
+        printf '%s\n' '#!/bin/bash' \
+          'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
+          "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/sdkmanager\" \"\$@\"" > tools/sdkmanager
+        chmod +x tools/sdkmanager
+
+    - name: Install Android SDK components
+      env:
+        ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
+        ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
+        ANDROID_SDK_HOME: /home/runner/.buildozer/android/platform/android-sdk
+        ANDROID_USER_HOME: /tmp/.android
+        JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
+        JAVA_OPTS: "-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
+      run: |
+        # Accept all licenses automatically
+        echo "y" | yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        
+        # Install required SDK components
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
+
+    - name: Fix libffi autotools compatibility
+      run: |
+        # Set environment variables to fix libffi autotools issues
+        export AUTOMAKE="automake --add-missing"
+        export ACLOCAL="aclocal -I m4"
+        
+        # Create a more comprehensive patch for libffi
+        cat > /tmp/libffi-fix.sh << 'EOF'
+        #!/bin/bash
+        
+        # Function to apply libffi fixes
+        apply_libffi_fixes() {
+          local libffi_dir="$1"
+          if [ -d "$libffi_dir" ]; then
+            echo "Applying libffi fixes to: $libffi_dir"
+            
+            # Add m4_pattern_allow for LT_SYS_SYMBOL_USCORE
+            if [ -f "$libffi_dir/configure.ac" ]; then
+              sed -i '/AC_CHECK_LIB(\[dl\], \[dlopen\])/a\m4_pattern_allow([^LT_SYS_SYMBOL_USCORE$])' "$libffi_dir/configure.ac"
+            fi
+            
+            # Update autotools files
+            cd "$libffi_dir"
+            autoreconf -fiv || true
+          fi
+        }
+        
+        # Apply fixes to any libffi directories found
+        find /home/runner/.buildozer -name "libffi" -type d | while read dir; do
+          apply_libffi_fixes "$dir"
+        done
+        EOF
+        
+        chmod +x /tmp/libffi-fix.sh
+        /tmp/libffi-fix.sh
+
     - name: Build APK with Buildozer
       env:
-        # この一行が、buildozerの全自動プロセスを正しく動作させる鍵です
+        ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
+        ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
+        ANDROID_SDK_HOME: /home/runner/.buildozer/android/platform/android-sdk
+        ANDROID_USER_HOME: /tmp/.android
+        JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
+        JAVA_OPTS: "-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
+        P4A_DEBUG: 1
+        BUILD_DEBUG: 1
         ACCEPT_EULA: "Y"
+        # Fix libffi autotools issues
+        AUTOMAKE: "automake --add-missing"
+        ACLOCAL: "aclocal -I m4"
+        # Force libffi to use system version if available
+        P4A_LIBFFI: "1"
       run: |
+        # Set PATH to include Android SDK tools
+        export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/tools:$PATH"
+        
+        # Create a pre-build hook to fix libffi issues
+        cat > /tmp/pre_build_hook.py << 'EOF'
+        import os
+        import shutil
+        
+        def fix_libffi_issues():
+            """Fix libffi autotools compatibility issues"""
+            buildozer_dir = os.path.expanduser("~/.buildozer")
+            if os.path.exists(buildozer_dir):
+                for root, dirs, files in os.walk(buildozer_dir):
+                    if "libffi" in root and "configure.ac" in files:
+                        configure_ac = os.path.join(root, "configure.ac")
+                        print(f"Fixing libffi configure.ac: {configure_ac}")
+                        
+                        # Read the file
+                        with open(configure_ac, 'r') as f:
+                            content = f.read()
+                        
+                        # Add m4_pattern_allow if not present
+                        if "m4_pattern_allow([^LT_SYS_SYMBOL_USCORE$])" not in content:
+                            content = content.replace(
+                                "AC_CHECK_LIB([dl], [dlopen])",
+                                "AC_CHECK_LIB([dl], [dlopen])\nm4_pattern_allow([^LT_SYS_SYMBOL_USCORE$])"
+                            )
+                            
+                            # Write back
+                            with open(configure_ac, 'w') as f:
+                                f.write(content)
+                            
+                            print(f"Applied libffi fix to: {configure_ac}")
+        
+        if __name__ == "__main__":
+            fix_libffi_issues()
+        EOF
+        
+        python /tmp/pre_build_hook.py
+        
+        # Build with buildozer
         buildozer android debug --verbose
 
     - name: Upload APK
