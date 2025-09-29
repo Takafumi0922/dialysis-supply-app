@@ -29,10 +29,6 @@ jobs:
         pip install "cython<3.0"
         pip install buildozer
 
-    - name: Initialize buildozer
-      run: |
-        buildozer init
-
     - name: Accept Android SDK licenses
       run: |
         mkdir -p /tmp/.java /tmp/.user
