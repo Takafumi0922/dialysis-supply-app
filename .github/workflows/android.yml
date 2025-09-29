@@ -45,16 +45,19 @@ jobs:
         unzip -q commandlinetools-linux-11076708_latest.zip
         rm commandlinetools-linux-11076708_latest.zip
         
+        # Verify the downloaded structure
+        echo "Checking cmdline-tools structure:"
+        ls -la cmdline-tools/
+        ls -la cmdline-tools/latest/
+        ls -la cmdline-tools/latest/bin/
+        
         # Create legacy tools directory structure for buildozer compatibility
         mkdir -p tools/bin tools
-        cp cmdline-tools/latest/bin/sdkmanager tools/bin/sdkmanager
-        cp cmdline-tools/latest/bin/avdmanager tools/bin/avdmanager
-        cp cmdline-tools/latest/bin/sdkmanager tools/sdkmanager
-        cp cmdline-tools/latest/bin/avdmanager tools/avdmanager
-        chmod +x tools/bin/sdkmanager tools/bin/avdmanager tools/sdkmanager tools/avdmanager
         
-        # Create proper wrapper scripts for buildozer compatibility (use printf to avoid YAML/heredoc indentation issues)
+        # Always create wrapper scripts (more reliable than copying)
         SDK_ROOT_PATH="/home/runner/.buildozer/android/platform/android-sdk"
+        
+        # Create sdkmanager wrapper scripts
         printf '%s\n' '#!/bin/bash' \
           'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
           "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/sdkmanager\" \"\$@\"" > tools/bin/sdkmanager
@@ -64,6 +67,22 @@ jobs:
           'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
           "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/sdkmanager\" \"\$@\"" > tools/sdkmanager
         chmod +x tools/sdkmanager
+        
+        # Create avdmanager wrapper scripts
+        printf '%s\n' '#!/bin/bash' \
+          'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
+          "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/avdmanager\" \"\$@\"" > tools/bin/avdmanager
+        chmod +x tools/bin/avdmanager
+        
+        printf '%s\n' '#!/bin/bash' \
+          'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
+          "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/avdmanager\" \"\$@\"" > tools/avdmanager
+        chmod +x tools/avdmanager
+        
+        # Verify wrapper scripts
+        echo "Created wrapper scripts:"
+        ls -la tools/bin/
+        ls -la tools/
 
     - name: Install Android SDK components
       env:
