@@ -163,6 +163,25 @@ jobs:
         # Set PATH to include Android SDK tools
         export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/tools:$PATH"
         
+        # Debug: Check environment and tools
+        echo "=== Environment Debug ==="
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "JAVA_HOME: $JAVA_HOME"
+        echo "PATH: $PATH"
+        echo "Python version: $(python --version)"
+        echo "Buildozer version: $(buildozer --version)"
+        
+        # Debug: Check Android SDK structure
+        echo "=== Android SDK Structure ==="
+        ls -la $ANDROID_HOME/
+        ls -la $ANDROID_HOME/cmdline-tools/
+        ls -la $ANDROID_HOME/cmdline-tools/latest/
+        ls -la $ANDROID_HOME/cmdline-tools/latest/bin/
+        
+        # Debug: Check if sdkmanager works
+        echo "=== SDK Manager Test ==="
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version || echo "sdkmanager version check failed"
+        
         # Create a pre-build hook to fix libffi issues
         cat > /tmp/pre_build_hook.py << 'EOF'
         import os
@@ -200,8 +219,15 @@ jobs:
         
         python /tmp/pre_build_hook.py
         
-        # Build with buildozer
-        buildozer android debug --verbose
+        # Build with buildozer with maximum verbosity
+        echo "=== Starting Buildozer Build ==="
+        buildozer android debug --verbose 2>&1 | tee buildozer.log
+        
+        # If build fails, show the last part of the log
+        if [ $? -ne 0 ]; then
+          echo "=== Build Failed - Last 100 lines of log ==="
+          tail -100 buildozer.log || echo "Could not read buildozer.log"
+        fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
