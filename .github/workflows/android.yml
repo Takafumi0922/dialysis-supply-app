@@ -222,11 +222,20 @@ jobs:
         # Build with buildozer with maximum verbosity
         echo "=== Starting Buildozer Build ==="
         buildozer android debug --verbose 2>&1 | tee buildozer.log
+        BUILD_EXIT_CODE=$?
         
-        # If build fails, show the last part of the log
-        if [ $? -ne 0 ]; then
-          echo "=== Build Failed - Last 100 lines of log ==="
-          tail -100 buildozer.log || echo "Could not read buildozer.log"
+        # Always show the last part of the log for debugging
+        echo "=== Buildozer Build Exit Code: $BUILD_EXIT_CODE ==="
+        echo "=== Last 200 lines of buildozer log ==="
+        tail -200 buildozer.log || echo "Could not read buildozer.log"
+        
+        # Check if buildozer actually completed successfully
+        if [ $BUILD_EXIT_CODE -ne 0 ]; then
+          echo "=== Buildozer failed with exit code $BUILD_EXIT_CODE ==="
+          echo "=== Full buildozer log for debugging ==="
+          cat buildozer.log || echo "Could not read full buildozer.log"
+        else
+          echo "=== Buildozer completed successfully ==="
         fi
 
     - name: Find and Upload APK
