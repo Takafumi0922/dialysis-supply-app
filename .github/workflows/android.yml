@@ -338,7 +338,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: app-debug.apk
-        path: |
-          bin/*.apk
-          .buildozer/android/platform/build-*/dists/*/bin/*.apk
-          *.apk
+        path: "**/*.apk"
