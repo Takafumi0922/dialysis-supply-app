@@ -219,7 +219,7 @@ jobs:
         
         python /tmp/pre_build_hook.py
         
-        # Build with buildozer with maximum verbosity
+        # Try buildozer first, then fallback to python-for-android
         echo "=== Starting Buildozer Build ==="
         buildozer android debug --verbose 2>&1 | tee buildozer.log
         BUILD_EXIT_CODE=$?
@@ -229,11 +229,41 @@ jobs:
         echo "=== Last 200 lines of buildozer log ==="
         tail -200 buildozer.log || echo "Could not read buildozer.log"
         
-        # Check if buildozer actually completed successfully
+        # If buildozer fails, try python-for-android directly
         if [ $BUILD_EXIT_CODE -ne 0 ]; then
-          echo "=== Buildozer failed with exit code $BUILD_EXIT_CODE ==="
-          echo "=== Full buildozer log for debugging ==="
-          cat buildozer.log || echo "Could not read full buildozer.log"
+          echo "=== Buildozer failed, trying python-for-android directly ==="
+          
+          # Install python-for-android
+          pip install python-for-android
+          
+          # Create APK using python-for-android directly
+          p4a apk --debug \
+            --bootstrap sdl2 \
+            --requirements python3,kivy,kivymd,opencv-python,numpy,Pillow,PyYAML,plyer,pyjnius \
+            --arch arm64-v8a --arch armeabi-v7a \
+            --copy-libs \
+            --color=always \
+            --storage-dir=.buildozer/android/platform/build-arm64-v8a_armeabi-v7a \
+            --ndk-api=21 \
+            --ignore-setup-py \
+            --debug \
+            --name "透析供給装置薬液補充アプリ" \
+            --package org.dialysis.supply \
+            --version 1.0 \
+            --orientation portrait \
+            --permissions INTERNET,CAMERA,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE \
+            --private-storage \
+            --entrypoint org.kivy.android.PythonActivity \
+            --theme "@android:style/Theme.NoTitleBar" \
+            --logcat-filters "*:S python:D" \
+            --copy-libs \
+            --dist-name dialysis_supply_app \
+            --main main.py 2>&1 | tee p4a.log
+          
+          P4A_EXIT_CODE=$?
+          echo "=== Python-for-Android Exit Code: $P4A_EXIT_CODE ==="
+          echo "=== Last 200 lines of p4a log ==="
+          tail -200 p4a.log || echo "Could not read p4a.log"
         else
           echo "=== Buildozer completed successfully ==="
         fi
@@ -250,6 +280,12 @@ jobs:
         if [ -d ".buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/dialysis_supply_app/bin" ]; then
           echo "=== Found buildozer output directory ==="
           ls -la .buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/dialysis_supply_app/bin/
+        fi
+        
+        # Check python-for-android output directory
+        if [ -d ".buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists" ]; then
+          echo "=== Found p4a output directory ==="
+          find .buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists -name "*.apk" -type f
         fi
         
         # Check for APK in the current directory
