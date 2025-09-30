@@ -229,68 +229,110 @@ jobs:
         echo "=== Last 200 lines of buildozer log ==="
         tail -200 buildozer.log || echo "Could not read buildozer.log"
         
-        # If buildozer fails, try python-for-android directly
+        # If buildozer fails, try multiple approaches
         if [ $BUILD_EXIT_CODE -ne 0 ]; then
-          echo "=== Buildozer failed, trying python-for-android directly ==="
+          echo "=== Buildozer failed, trying alternative approaches ==="
           
-          # Install python-for-android
+          # Approach 1: Try python-for-android with minimal requirements
+          echo "=== Approach 1: Python-for-Android with minimal requirements ==="
           pip install python-for-android
           
-          # Create APK using python-for-android directly
           p4a apk --debug \
             --bootstrap sdl2 \
-            --requirements python3,kivy,kivymd,opencv-python,numpy,Pillow,PyYAML,plyer,pyjnius \
-            --arch arm64-v8a --arch armeabi-v7a \
-            --copy-libs \
-            --color=always \
-            --storage-dir=.buildozer/android/platform/build-arm64-v8a_armeabi-v7a \
-            --ndk-api=21 \
-            --ignore-setup-py \
-            --debug \
+            --requirements python3,kivy \
+            --arch arm64-v8a \
             --name "透析供給装置薬液補充アプリ" \
             --package org.dialysis.supply \
             --version 1.0 \
-            --orientation portrait \
-            --permissions INTERNET,CAMERA,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE \
-            --private-storage \
-            --entrypoint org.kivy.android.PythonActivity \
-            --theme "@android:style/Theme.NoTitleBar" \
-            --logcat-filters "*:S python:D" \
-            --copy-libs \
-            --dist-name dialysis_supply_app \
-            --main main.py 2>&1 | tee p4a.log
+            --main main.py 2>&1 | tee p4a_minimal.log
           
-          P4A_EXIT_CODE=$?
-          echo "=== Python-for-Android Exit Code: $P4A_EXIT_CODE ==="
-          echo "=== Last 200 lines of p4a log ==="
-          tail -200 p4a.log || echo "Could not read p4a.log"
+          P4A_MINIMAL_EXIT_CODE=$?
+          echo "=== Python-for-Android Minimal Exit Code: $P4A_MINIMAL_EXIT_CODE ==="
+          
+          # Approach 2: Try with all requirements but single arch
+          if [ $P4A_MINIMAL_EXIT_CODE -ne 0 ]; then
+            echo "=== Approach 2: Python-for-Android with single architecture ==="
+            p4a apk --debug \
+              --bootstrap sdl2 \
+              --requirements python3,kivy,kivymd,opencv-python,numpy,Pillow,PyYAML,plyer,pyjnius \
+              --arch arm64-v8a \
+              --name "透析供給装置薬液補充アプリ" \
+              --package org.dialysis.supply \
+              --version 1.0 \
+              --main main.py 2>&1 | tee p4a_single_arch.log
+            
+            P4A_SINGLE_EXIT_CODE=$?
+            echo "=== Python-for-Android Single Arch Exit Code: $P4A_SINGLE_EXIT_CODE ==="
+          fi
+          
+          # Approach 3: Try with different bootstrap
+          if [ $P4A_SINGLE_EXIT_CODE -ne 0 ]; then
+            echo "=== Approach 3: Python-for-Android with webview bootstrap ==="
+            p4a apk --debug \
+              --bootstrap webview \
+              --requirements python3,kivy \
+              --arch arm64-v8a \
+              --name "透析供給装置薬液補充アプリ" \
+              --package org.dialysis.supply \
+              --version 1.0 \
+              --main main.py 2>&1 | tee p4a_webview.log
+            
+            P4A_WEBVIEW_EXIT_CODE=$?
+            echo "=== Python-for-Android Webview Exit Code: $P4A_WEBVIEW_EXIT_CODE ==="
+          fi
+          
+          # Show all logs for debugging
+          echo "=== All p4a logs for debugging ==="
+          for log_file in p4a_minimal.log p4a_single_arch.log p4a_webview.log; do
+            if [ -f "$log_file" ]; then
+              echo "=== $log_file ==="
+              tail -50 "$log_file" || echo "Could not read $log_file"
+            fi
+          done
         else
           echo "=== Buildozer completed successfully ==="
         fi
 
     - name: Find and Upload APK
       run: |
-        # Find APK files in common buildozer locations
-        echo "=== Searching for APK files ==="
-        find . -name "*.apk" -type f 2>/dev/null || echo "No APK files found with find"
+        # Comprehensive APK file search
+        echo "=== Comprehensive APK file search ==="
+        
+        # Search all directories recursively
+        echo "=== Recursive search for APK files ==="
+        find . -name "*.apk" -type f -exec ls -la {} \; 2>/dev/null || echo "No APK files found with recursive search"
+        
+        # Check common buildozer locations
+        echo "=== Checking common buildozer locations ==="
         ls -la bin/ 2>/dev/null || echo "bin/ directory not found"
         ls -la .buildozer/ 2>/dev/null || echo ".buildozer/ directory not found"
         
-        # Check buildozer output directory
-        if [ -d ".buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/dialysis_supply_app/bin" ]; then
-          echo "=== Found buildozer output directory ==="
-          ls -la .buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/dialysis_supply_app/bin/
-        fi
+        # Check all possible buildozer output directories
+        echo "=== Checking all buildozer output directories ==="
+        for dir in .buildozer/android/platform/build-*/dists/*/bin; do
+          if [ -d "$dir" ]; then
+            echo "=== Found buildozer output directory: $dir ==="
+            ls -la "$dir"
+          fi
+        done
         
-        # Check python-for-android output directory
-        if [ -d ".buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists" ]; then
-          echo "=== Found p4a output directory ==="
-          find .buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists -name "*.apk" -type f
-        fi
+        # Check python-for-android output directories
+        echo "=== Checking p4a output directories ==="
+        for dir in .buildozer/android/platform/build-*/dists; do
+          if [ -d "$dir" ]; then
+            echo "=== Found p4a output directory: $dir ==="
+            find "$dir" -name "*.apk" -type f -exec ls -la {} \;
+          fi
+        done
         
-        # Check for APK in the current directory
-        echo "=== Current directory APK search ==="
+        # Check current directory and subdirectories
+        echo "=== Current directory and subdirectories APK search ==="
         ls -la *.apk 2>/dev/null || echo "No APK files in current directory"
+        find . -maxdepth 2 -name "*.apk" -type f -exec ls -la {} \; 2>/dev/null || echo "No APK files in subdirectories"
+        
+        # Check for any APK files in the entire workspace
+        echo "=== Final comprehensive APK search ==="
+        find /home/runner/work/dialysis-supply-app/dialysis-supply-app -name "*.apk" -type f 2>/dev/null || echo "No APK files found in entire workspace"
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
