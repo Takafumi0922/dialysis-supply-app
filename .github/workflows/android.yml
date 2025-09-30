@@ -293,6 +293,62 @@ jobs:
           echo "=== Buildozer completed successfully ==="
         fi
 
+    - name: Investigate build output
+      run: |
+        echo "=== INVESTIGATION: Searching for APK files anywhere in the workspace ==="
+        find . -name "*.apk" -ls 2>/dev/null || echo "No APK files found with find command"
+        echo ""
+        
+        echo "=== INVESTIGATION: Listing contents of buildozer directories ==="
+        if [ -d ".buildozer" ]; then
+          echo "=== .buildozer directory exists ==="
+          ls -la .buildozer/
+          
+          if [ -d ".buildozer/android" ]; then
+            echo "=== .buildozer/android directory exists ==="
+            ls -la .buildozer/android/
+            
+            if [ -d ".buildozer/android/platform" ]; then
+              echo "=== .buildozer/android/platform directory exists ==="
+              ls -la .buildozer/android/platform/
+              
+              echo "=== All build directories in platform ==="
+              find .buildozer/android/platform -type d -name "build-*" -exec ls -la {} \;
+              
+              echo "=== All dists directories ==="
+              find .buildozer/android/platform -type d -name "dists" -exec ls -la {} \;
+              
+              echo "=== Contents of all dists directories ==="
+              find .buildozer/android/platform -path "*/dists/*" -type d -exec ls -la {} \;
+            fi
+          fi
+        else
+          echo "=== .buildozer directory does not exist ==="
+        fi
+        
+        echo ""
+        echo "=== INVESTIGATION: Checking for any files with 'apk' in the name ==="
+        find . -name "*apk*" -type f -ls 2>/dev/null || echo "No files with 'apk' in name found"
+        
+        echo ""
+        echo "=== INVESTIGATION: Checking bin directory ==="
+        if [ -d "bin" ]; then
+          echo "=== bin directory exists ==="
+          ls -la bin/
+        else
+          echo "=== bin directory does not exist ==="
+        fi
+        
+        echo ""
+        echo "=== INVESTIGATION: Checking current directory for any APK-related files ==="
+        ls -la *.apk 2>/dev/null || echo "No APK files in current directory"
+        ls -la *apk* 2>/dev/null || echo "No files with 'apk' in current directory"
+        
+        echo ""
+        echo "=== INVESTIGATION: Final comprehensive search ==="
+        echo "Searching entire workspace for any APK files..."
+        find /home/runner/work/dialysis-supply-app/dialysis-supply-app -name "*.apk" -type f -ls 2>/dev/null || echo "No APK files found in entire workspace"
+
     - name: Find and Upload APK
       run: |
         # Comprehensive APK file search
