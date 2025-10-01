@@ -40,11 +40,14 @@ android.api = 34
 # (int) Minimum API your APK will support.
 android.minapi = 21
 
-# (str) Android NDK version to use
-android.ndk = 26b
+# (str) Android NDK version to use (compatible with libffi)
+android.ndk = 25b
 
 # (str) Android SDK version to use
 # android.sdk = 34  # Deprecated, using p4a.sdk_version instead
+
+# (bool) Automatically accept SDK licenses
+android.accept_sdk_license = True
 
 # (bool) Use --private data storage (True) or --dir public storage (False)
 android.private_storage = True
@@ -80,7 +83,7 @@ log_level = 2
 p4a.bootstrap = sdl2
 
 # (str) Python-for-Android NDK version
-p4a.ndk_version = 26b
+p4a.ndk_version = 25b
 
 # (str) Python-for-Android SDK version
 p4a.sdk_version = 34

@@ -14,395 +14,50 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
     - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    - name: Install system dependencies
+    # キャッシュを設定してビルド時間を短縮
+    - name: Cache Buildozer global directory
+      uses: actions/cache@v4
+      with:
+        path: ~/.buildozer
+        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+        restore-keys: |
+          ${{ runner.os }}-buildozer-
+
+    - name: Cache Pip packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo-dev cmake libffi-dev libssl-dev wget curl build-essential libffi-dev libssl-dev libxml2-dev libxslt1-dev libjpeg-dev libpng-dev libfreetype6-dev liblcms2-dev libwebp-dev libharfbuzz-dev libfribidi-dev libxcb1-dev automake m4
+        sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo-dev libffi-dev libssl-dev
+        pip install "cython<3.0" buildozer
 
-    - name: Install Python dependencies
+    - name: Build with Buildozer
+      # タイムアウトを30分に設定
+      timeout-minutes: 30
       run: |
-        pip install "cython<3.0"
-        pip install buildozer
-
-    - name: Accept Android SDK licenses
-      run: |
-        mkdir -p /tmp/.java /tmp/.user
-        echo "y" | yes | sdkmanager --licenses || true
-
-    - name: Setup Android SDK manually
-      run: |
-        # Create Android SDK directory
-        mkdir -p /home/runner/.buildozer/android/platform/android-sdk
-        
-        # Download and install command-line tools
-        cd /home/runner/.buildozer/android/platform/android-sdk
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-        unzip -q commandlinetools-linux-11076708_latest.zip
-        rm commandlinetools-linux-11076708_latest.zip
-        
-        # Create the expected directory structure for sdkmanager
-        mkdir -p cmdline-tools/latest
-        mv cmdline-tools/bin cmdline-tools/lib cmdline-tools/NOTICE.txt cmdline-tools/source.properties cmdline-tools/latest/
-        
-        # Verify the restructured directory
-        echo "Checking restructured cmdline-tools:"
-        ls -la cmdline-tools/
-        ls -la cmdline-tools/latest/
-        ls -la cmdline-tools/latest/bin/
-        
-        # Create legacy tools directory structure for buildozer compatibility
-        mkdir -p tools/bin tools
-        
-        # Always create wrapper scripts (more reliable than copying)
-        SDK_ROOT_PATH="/home/runner/.buildozer/android/platform/android-sdk"
-        
-        # Create sdkmanager wrapper scripts (use latest path as expected)
-        printf '%s\n' '#!/bin/bash' \
-          'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
-          "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/sdkmanager\" \"\$@\"" > tools/bin/sdkmanager
-        chmod +x tools/bin/sdkmanager
-        
-        printf '%s\n' '#!/bin/bash' \
-          'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
-          "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/sdkmanager\" \"\$@\"" > tools/sdkmanager
-        chmod +x tools/sdkmanager
-        
-        # Create avdmanager wrapper scripts (use latest path as expected)
-        printf '%s\n' '#!/bin/bash' \
-          'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
-          "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/avdmanager\" \"\$@\"" > tools/bin/avdmanager
-        chmod +x tools/bin/avdmanager
-        
-        printf '%s\n' '#!/bin/bash' \
-          'export JAVA_OPTS="-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"' \
-          "exec \"$SDK_ROOT_PATH/cmdline-tools/latest/bin/avdmanager\" \"\$@\"" > tools/avdmanager
-        chmod +x tools/avdmanager
-        
-        # Verify wrapper scripts
-        echo "Created wrapper scripts:"
-        ls -la tools/bin/
-        ls -la tools/
-
-    - name: Install Android SDK components
-      env:
-        ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
-        ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
-        ANDROID_SDK_HOME: /home/runner/.buildozer/android/platform/android-sdk
-        ANDROID_USER_HOME: /tmp/.android
-        JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
-        JAVA_OPTS: "-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
-      run: |
-        # Accept all licenses automatically (use latest path as expected)
-        echo "y" | yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-        
-        # Install required SDK components (use latest path as expected)
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34"
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2"
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
-
-    - name: Fix libffi autotools compatibility
-      run: |
-        # Set environment variables to fix libffi autotools issues
-        export AUTOMAKE="automake --add-missing"
-        export ACLOCAL="aclocal -I m4"
-        
-        # Create a more comprehensive patch for libffi
-        cat > /tmp/libffi-fix.sh << 'EOF'
-        #!/bin/bash
-        
-        # Function to apply libffi fixes
-        apply_libffi_fixes() {
-          local libffi_dir="$1"
-          if [ -d "$libffi_dir" ]; then
-            echo "Applying libffi fixes to: $libffi_dir"
-            
-            # Add m4_pattern_allow for LT_SYS_SYMBOL_USCORE
-            if [ -f "$libffi_dir/configure.ac" ]; then
-              sed -i '/AC_CHECK_LIB(\[dl\], \[dlopen\])/a\m4_pattern_allow([^LT_SYS_SYMBOL_USCORE$])' "$libffi_dir/configure.ac"
-            fi
-            
-            # Update autotools files
-            cd "$libffi_dir"
-            autoreconf -fiv || true
-          fi
-        }
-        
-        # Apply fixes to any libffi directories found
-        find /home/runner/.buildozer -name "libffi" -type d | while read dir; do
-          apply_libffi_fixes "$dir"
-        done
-        EOF
-        
-        chmod +x /tmp/libffi-fix.sh
-        /tmp/libffi-fix.sh
-
-    - name: Build APK with Buildozer
-      env:
-        ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
-        ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
-        ANDROID_SDK_HOME: /home/runner/.buildozer/android/platform/android-sdk
-        ANDROID_USER_HOME: /tmp/.android
-        JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
-        JAVA_OPTS: "-Djava.util.prefs.systemRoot=/tmp/.java -Djava.util.prefs.userRoot=/tmp/.user"
-        P4A_DEBUG: 1
-        BUILD_DEBUG: 1
-        ACCEPT_EULA: "Y"
-        # Fix libffi autotools issues
-        AUTOMAKE: "automake --add-missing"
-        ACLOCAL: "aclocal -I m4"
-        # Force libffi to use system version if available
-        P4A_LIBFFI: "1"
-      run: |
-        # Set PATH to include Android SDK tools
-        export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/tools:$PATH"
-        
-        # Debug: Check environment and tools
-        echo "=== Environment Debug ==="
-        echo "ANDROID_HOME: $ANDROID_HOME"
-        echo "JAVA_HOME: $JAVA_HOME"
-        echo "PATH: $PATH"
-        echo "Python version: $(python --version)"
-        echo "Buildozer version: $(buildozer --version)"
-        
-        # Debug: Check Android SDK structure
-        echo "=== Android SDK Structure ==="
-        ls -la $ANDROID_HOME/
-        ls -la $ANDROID_HOME/cmdline-tools/
-        ls -la $ANDROID_HOME/cmdline-tools/latest/
-        ls -la $ANDROID_HOME/cmdline-tools/latest/bin/
-        
-        # Debug: Check if sdkmanager works
-        echo "=== SDK Manager Test ==="
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version || echo "sdkmanager version check failed"
-        
-        # Create a pre-build hook to fix libffi issues
-        cat > /tmp/pre_build_hook.py << 'EOF'
-        import os
-        import shutil
-        
-        def fix_libffi_issues():
-            """Fix libffi autotools compatibility issues"""
-            buildozer_dir = os.path.expanduser("~/.buildozer")
-            if os.path.exists(buildozer_dir):
-                for root, dirs, files in os.walk(buildozer_dir):
-                    if "libffi" in root and "configure.ac" in files:
-                        configure_ac = os.path.join(root, "configure.ac")
-                        print(f"Fixing libffi configure.ac: {configure_ac}")
-                        
-                        # Read the file
-                        with open(configure_ac, 'r') as f:
-                            content = f.read()
-                        
-                        # Add m4_pattern_allow if not present
-                        if "m4_pattern_allow([^LT_SYS_SYMBOL_USCORE$])" not in content:
-                            content = content.replace(
-                                "AC_CHECK_LIB([dl], [dlopen])",
-                                "AC_CHECK_LIB([dl], [dlopen])\nm4_pattern_allow([^LT_SYS_SYMBOL_USCORE$])"
-                            )
-                            
-                            # Write back
-                            with open(configure_ac, 'w') as f:
-                                f.write(content)
-                            
-                            print(f"Applied libffi fix to: {configure_ac}")
-        
-        if __name__ == "__main__":
-            fix_libffi_issues()
-        EOF
-        
-        python /tmp/pre_build_hook.py
-        
-        # Buildozer seems to create empty distribution directories without actually building
-        # Let's use python-for-android directly for more control
-        echo "=== Using python-for-android directly for better control ==="
-        
-        # Install python-for-android
-        pip install python-for-android
-        
-        # Use p4a to build APK with verbose output
-        echo "=== Building APK with python-for-android ==="
-        p4a apk \
-          --private . \
-          --package=org.dialysis.supply \
-          --name="DialysisSupplyApp" \
-          --version=1.0 \
-          --bootstrap=sdl2 \
-          --requirements=python3,kivy,kivymd \
-          --permission=INTERNET \
-          --permission=WRITE_EXTERNAL_STORAGE \
-          --permission=READ_EXTERNAL_STORAGE \
-          --arch=armeabi-v7a \
-          --arch=arm64-v8a \
-          --orientation=portrait \
-          --window \
-          --debug 2>&1 | tee p4a_build.log
-        
-        P4A_EXIT_CODE=$?
-        echo "=== Python-for-Android exit code: $P4A_EXIT_CODE ==="
-        
-        if [ $P4A_EXIT_CODE -ne 0 ]; then
-          echo "=== P4A build failed, showing last 200 lines of log ==="
-          tail -200 p4a_build.log
-          
-          echo "=== Trying with minimal requirements (python3 + kivy only) ==="
-          p4a apk \
-            --private . \
-            --package=org.dialysis.supply \
-            --name="DialysisSupplyApp" \
-            --version=1.0 \
-            --bootstrap=sdl2 \
-            --requirements=python3,kivy \
-            --permission=INTERNET \
-            --arch=armeabi-v7a \
-            --orientation=portrait \
-            --window \
-            --debug 2>&1 | tee p4a_minimal.log
-          
-          P4A_MINIMAL_EXIT_CODE=$?
-          echo "=== P4A minimal build exit code: $P4A_MINIMAL_EXIT_CODE ==="
-          
-          if [ $P4A_MINIMAL_EXIT_CODE -ne 0 ]; then
-            echo "=== Minimal build also failed, showing log ==="
-            tail -200 p4a_minimal.log
-          fi
-        fi
-        
-        # Search for any generated APK files
-        echo "=== Searching for generated APK files ==="
-        find . -name "*.apk" -type f -ls
-        
-        # Copy any found APK to bin directory
-        mkdir -p bin
-        if find . -name "*.apk" -type f | grep -q .; then
-          echo "=== APK files found, copying to bin directory ==="
-          find . -name "*.apk" -type f -exec cp {} bin/ \;
-          ls -la bin/
-        else
-          echo "=== No APK files found with p4a, will try buildozer as fallback ==="
-          
-          # Fallback to buildozer
-          echo "=== Trying buildozer as fallback ==="
-          buildozer android debug --verbose 2>&1 | tee buildozer.log
-          BUILD_EXIT_CODE=$?
-          
-          echo "=== Buildozer exit code: $BUILD_EXIT_CODE ==="
-          tail -200 buildozer.log
-          
-          # Search again for APK
-          echo "=== Searching for APK after buildozer ==="
-          find . -name "*.apk" -type f -ls
-          find . -name "*.apk" -type f -exec cp {} bin/ \; 2>/dev/null || echo "No APK found"
-          ls -la bin/ 2>/dev/null || echo "bin directory is empty"
-        fi
-
-    - name: Investigate build output
-      run: |
-        echo "=== INVESTIGATION: Searching for APK files anywhere in the workspace ==="
-        find . -name "*.apk" -ls 2>/dev/null || echo "No APK files found with find command"
-        echo ""
-        
-        echo "=== INVESTIGATION: Listing contents of buildozer directories ==="
-        if [ -d ".buildozer" ]; then
-          echo "=== .buildozer directory exists ==="
-          ls -la .buildozer/
-          
-          if [ -d ".buildozer/android" ]; then
-            echo "=== .buildozer/android directory exists ==="
-            ls -la .buildozer/android/
-            
-            if [ -d ".buildozer/android/platform" ]; then
-              echo "=== .buildozer/android/platform directory exists ==="
-              ls -la .buildozer/android/platform/
-              
-              echo "=== All build directories in platform ==="
-              find .buildozer/android/platform -type d -name "build-*" -exec ls -la {} \;
-              
-              echo "=== All dists directories ==="
-              find .buildozer/android/platform -type d -name "dists" -exec ls -la {} \;
-              
-              echo "=== Contents of all dists directories ==="
-              find .buildozer/android/platform -path "*/dists/*" -type d -exec ls -la {} \;
-            fi
-          fi
-        else
-          echo "=== .buildozer directory does not exist ==="
-        fi
-        
-        echo ""
-        echo "=== INVESTIGATION: Checking for any files with 'apk' in the name ==="
-        find . -name "*apk*" -type f -ls 2>/dev/null || echo "No files with 'apk' in name found"
-        
-        echo ""
-        echo "=== INVESTIGATION: Checking bin directory ==="
-        if [ -d "bin" ]; then
-          echo "=== bin directory exists ==="
-          ls -la bin/
-        else
-          echo "=== bin directory does not exist ==="
-        fi
-        
-        echo ""
-        echo "=== INVESTIGATION: Checking current directory for any APK-related files ==="
-        ls -la *.apk 2>/dev/null || echo "No APK files in current directory"
-        ls -la *apk* 2>/dev/null || echo "No files with 'apk' in current directory"
-        
-        echo ""
-        echo "=== INVESTIGATION: Final comprehensive search ==="
-        echo "Searching entire workspace for any APK files..."
-        find /home/runner/work/dialysis-supply-app/dialysis-supply-app -name "*.apk" -type f -ls 2>/dev/null || echo "No APK files found in entire workspace"
-
-    - name: Find and Upload APK
-      run: |
-        # Comprehensive APK file search
-        echo "=== Comprehensive APK file search ==="
-        
-        # Search all directories recursively
-        echo "=== Recursive search for APK files ==="
-        find . -name "*.apk" -type f -exec ls -la {} \; 2>/dev/null || echo "No APK files found with recursive search"
-        
-        # Check common buildozer locations
-        echo "=== Checking common buildozer locations ==="
-        ls -la bin/ 2>/dev/null || echo "bin/ directory not found"
-        ls -la .buildozer/ 2>/dev/null || echo ".buildozer/ directory not found"
-        
-        # Check all possible buildozer output directories
-        echo "=== Checking all buildozer output directories ==="
-        for dir in .buildozer/android/platform/build-*/dists/*/bin; do
-          if [ -d "$dir" ]; then
-            echo "=== Found buildozer output directory: $dir ==="
-            ls -la "$dir"
-          fi
-        done
-        
-        # Check python-for-android output directories
-        echo "=== Checking p4a output directories ==="
-        for dir in .buildozer/android/platform/build-*/dists; do
-          if [ -d "$dir" ]; then
-            echo "=== Found p4a output directory: $dir ==="
-            find "$dir" -name "*.apk" -type f -exec ls -la {} \;
-          fi
-        done
-        
-        # Check current directory and subdirectories
-        echo "=== Current directory and subdirectories APK search ==="
-        ls -la *.apk 2>/dev/null || echo "No APK files in current directory"
-        find . -maxdepth 2 -name "*.apk" -type f -exec ls -la {} \; 2>/dev/null || echo "No APK files in subdirectories"
-        
-        # Check for any APK files in the entire workspace
-        echo "=== Final comprehensive APK search ==="
-        find /home/runner/work/dialysis-supply-app/dialysis-supply-app -name "*.apk" -type f 2>/dev/null || echo "No APK files found in entire workspace"
+        buildozer -v android debug
 
     - name: Upload APK
+      # buildozerが成功した場合のみ実行される
+      if: success()
       uses: actions/upload-artifact@v4
       with:
-        name: app-debug.apk
-        path: |
-          bin/*.apk
-          **/*.apk
+        name: dialysis-supply-app.apk
+        path: bin/*.apk
