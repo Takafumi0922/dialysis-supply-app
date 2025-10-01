@@ -23,7 +23,7 @@ version = 1.0
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,kivymd,opencv-python,numpy,Pillow,PyYAML,plyer,pyjnius
+requirements = python3,kivy
 
 # (str) Supported orientation (landscape, sensorLandscape, sensor or portrait)
 orientation = portrait
@@ -41,7 +41,7 @@ android.api = 34
 android.minapi = 21
 
 # (str) Android NDK version to use (compatible with libffi)
-android.ndk = 25b
+android.ndk = 23c
 
 # (str) Android SDK version to use
 # android.sdk = 34  # Deprecated, using p4a.sdk_version instead
@@ -72,7 +72,7 @@ android.logcat_filters = *:S python:D
 android.copy_libs = 1
 
 # (str) The Android arch to build for, choices: armeabi-v7a, arm64-v8a, x86, x86_64
-android.archs = arm64-v8a, armeabi-v7a
+android.archs = arm64-v8a
 
 [buildozer]
 
@@ -83,7 +83,7 @@ log_level = 2
 p4a.bootstrap = sdl2
 
 # (str) Python-for-Android NDK version
-p4a.ndk_version = 25b
+p4a.ndk_version = 23c
 
 # (str) Python-for-Android SDK version
 p4a.sdk_version = 34
