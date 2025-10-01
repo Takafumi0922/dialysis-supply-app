@@ -219,139 +219,87 @@ jobs:
         
         python /tmp/pre_build_hook.py
         
-        # Try buildozer first, then fallback to python-for-android
-        echo "=== Starting Buildozer Build ==="
-        buildozer android debug --verbose 2>&1 | tee buildozer.log
-        BUILD_EXIT_CODE=$?
+        # Buildozer seems to create empty distribution directories without actually building
+        # Let's use python-for-android directly for more control
+        echo "=== Using python-for-android directly for better control ==="
         
-        # Always show the last part of the log for debugging
-        echo "=== Buildozer Build Exit Code: $BUILD_EXIT_CODE ==="
-        echo "=== Last 200 lines of buildozer log ==="
-        tail -200 buildozer.log || echo "Could not read buildozer.log"
+        # Install python-for-android
+        pip install python-for-android
         
-        # Check if distribution was created but APK wasn't built
-        echo "=== Checking if distribution was created ==="
-        DIST_DIR=".buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/dialysis_supply_app"
-        if [ -d "$DIST_DIR" ]; then
-          echo "=== Distribution directory exists ==="
-          ls -la "$DIST_DIR"
-          
-          # Check if APK was built
-          if ! find "$DIST_DIR" -name "*.apk" | grep -q .; then
-            echo "=== APK not found in distribution directory ==="
-            echo "=== Attempting manual APK build with gradlew ==="
-            
-            cd "$DIST_DIR"
-            
-            # Make gradlew executable
-            if [ -f "gradlew" ]; then
-              chmod +x gradlew
-              
-              echo "=== Running gradlew assembleDebug ==="
-              ./gradlew assembleDebug --stacktrace --info 2>&1 | tee gradle_build.log
-              
-              GRADLE_EXIT_CODE=$?
-              echo "=== Gradle exit code: $GRADLE_EXIT_CODE ==="
-              
-              # Find and copy APK to workspace root
-              echo "=== Searching for generated APK ==="
-              find . -name "*.apk" -type f -ls
-              
-              APK_FILE=$(find . -name "*.apk" -type f | head -1)
-              if [ -n "$APK_FILE" ]; then
-                echo "=== APK found: $APK_FILE ==="
-                mkdir -p /home/runner/work/dialysis-supply-app/dialysis-supply-app/bin
-                cp "$APK_FILE" /home/runner/work/dialysis-supply-app/dialysis-supply-app/bin/
-                echo "=== APK copied to workspace bin directory ==="
-                ls -la /home/runner/work/dialysis-supply-app/dialysis-supply-app/bin/
-              else
-                echo "=== ERROR: APK not found after gradle build ==="
-                echo "=== Last 100 lines of gradle build log ==="
-                tail -100 gradle_build.log || echo "Could not read gradle log"
-              fi
-              
-              # Return to workspace root
-              cd /home/runner/work/dialysis-supply-app/dialysis-supply-app
-            else
-              echo "=== ERROR: gradlew not found in distribution directory ==="
-              echo "=== Contents of distribution directory: ==="
-              find "$DIST_DIR" -type f | head -20
-            fi
-          else
-            echo "=== APK already exists in distribution directory ==="
-            find "$DIST_DIR" -name "*.apk" -type f -ls
-            # Copy to bin directory for easier upload
-            mkdir -p bin
-            find "$DIST_DIR" -name "*.apk" -type f -exec cp {} bin/ \;
-            echo "=== APK copied to bin directory ==="
-            ls -la bin/
-          fi
-        else
-          echo "=== Distribution directory not found, will try alternative build methods ==="
-        fi
+        # Use p4a to build APK with verbose output
+        echo "=== Building APK with python-for-android ==="
+        p4a apk \
+          --private . \
+          --package=org.dialysis.supply \
+          --name="DialysisSupplyApp" \
+          --version=1.0 \
+          --bootstrap=sdl2 \
+          --requirements=python3,kivy,kivymd \
+          --permission=INTERNET \
+          --permission=WRITE_EXTERNAL_STORAGE \
+          --permission=READ_EXTERNAL_STORAGE \
+          --arch=armeabi-v7a \
+          --arch=arm64-v8a \
+          --orientation=portrait \
+          --window \
+          --debug 2>&1 | tee p4a_build.log
         
-        # If buildozer fails, try multiple approaches
-        if [ $BUILD_EXIT_CODE -ne 0 ]; then
-          echo "=== Buildozer failed, trying alternative approaches ==="
+        P4A_EXIT_CODE=$?
+        echo "=== Python-for-Android exit code: $P4A_EXIT_CODE ==="
+        
+        if [ $P4A_EXIT_CODE -ne 0 ]; then
+          echo "=== P4A build failed, showing last 200 lines of log ==="
+          tail -200 p4a_build.log
           
-          # Approach 1: Try python-for-android with minimal requirements
-          echo "=== Approach 1: Python-for-Android with minimal requirements ==="
-          pip install python-for-android
-          
-          p4a apk --debug \
-            --bootstrap sdl2 \
-            --requirements python3,kivy \
-            --arch arm64-v8a \
-            --name "透析供給装置薬液補充アプリ" \
-            --package org.dialysis.supply \
-            --version 1.0 \
-            --main main.py 2>&1 | tee p4a_minimal.log
+          echo "=== Trying with minimal requirements (python3 + kivy only) ==="
+          p4a apk \
+            --private . \
+            --package=org.dialysis.supply \
+            --name="DialysisSupplyApp" \
+            --version=1.0 \
+            --bootstrap=sdl2 \
+            --requirements=python3,kivy \
+            --permission=INTERNET \
+            --arch=armeabi-v7a \
+            --orientation=portrait \
+            --window \
+            --debug 2>&1 | tee p4a_minimal.log
           
           P4A_MINIMAL_EXIT_CODE=$?
-          echo "=== Python-for-Android Minimal Exit Code: $P4A_MINIMAL_EXIT_CODE ==="
+          echo "=== P4A minimal build exit code: $P4A_MINIMAL_EXIT_CODE ==="
           
-          # Approach 2: Try with all requirements but single arch
           if [ $P4A_MINIMAL_EXIT_CODE -ne 0 ]; then
-            echo "=== Approach 2: Python-for-Android with single architecture ==="
-            p4a apk --debug \
-              --bootstrap sdl2 \
-              --requirements python3,kivy,kivymd,opencv-python,numpy,Pillow,PyYAML,plyer,pyjnius \
-              --arch arm64-v8a \
-              --name "透析供給装置薬液補充アプリ" \
-              --package org.dialysis.supply \
-              --version 1.0 \
-              --main main.py 2>&1 | tee p4a_single_arch.log
-            
-            P4A_SINGLE_EXIT_CODE=$?
-            echo "=== Python-for-Android Single Arch Exit Code: $P4A_SINGLE_EXIT_CODE ==="
+            echo "=== Minimal build also failed, showing log ==="
+            tail -200 p4a_minimal.log
           fi
-          
-          # Approach 3: Try with different bootstrap
-          if [ $P4A_SINGLE_EXIT_CODE -ne 0 ]; then
-            echo "=== Approach 3: Python-for-Android with webview bootstrap ==="
-            p4a apk --debug \
-              --bootstrap webview \
-              --requirements python3,kivy \
-              --arch arm64-v8a \
-              --name "透析供給装置薬液補充アプリ" \
-              --package org.dialysis.supply \
-              --version 1.0 \
-              --main main.py 2>&1 | tee p4a_webview.log
-            
-            P4A_WEBVIEW_EXIT_CODE=$?
-            echo "=== Python-for-Android Webview Exit Code: $P4A_WEBVIEW_EXIT_CODE ==="
-          fi
-          
-          # Show all logs for debugging
-          echo "=== All p4a logs for debugging ==="
-          for log_file in p4a_minimal.log p4a_single_arch.log p4a_webview.log; do
-            if [ -f "$log_file" ]; then
-              echo "=== $log_file ==="
-              tail -50 "$log_file" || echo "Could not read $log_file"
-            fi
-          done
+        fi
+        
+        # Search for any generated APK files
+        echo "=== Searching for generated APK files ==="
+        find . -name "*.apk" -type f -ls
+        
+        # Copy any found APK to bin directory
+        mkdir -p bin
+        if find . -name "*.apk" -type f | grep -q .; then
+          echo "=== APK files found, copying to bin directory ==="
+          find . -name "*.apk" -type f -exec cp {} bin/ \;
+          ls -la bin/
         else
-          echo "=== Buildozer completed successfully ==="
+          echo "=== No APK files found with p4a, will try buildozer as fallback ==="
+          
+          # Fallback to buildozer
+          echo "=== Trying buildozer as fallback ==="
+          buildozer android debug --verbose 2>&1 | tee buildozer.log
+          BUILD_EXIT_CODE=$?
+          
+          echo "=== Buildozer exit code: $BUILD_EXIT_CODE ==="
+          tail -200 buildozer.log
+          
+          # Search again for APK
+          echo "=== Searching for APK after buildozer ==="
+          find . -name "*.apk" -type f -ls
+          find . -name "*.apk" -type f -exec cp {} bin/ \; 2>/dev/null || echo "No APK found"
+          ls -la bin/ 2>/dev/null || echo "bin directory is empty"
         fi
 
     - name: Investigate build output
