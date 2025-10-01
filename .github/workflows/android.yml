@@ -229,6 +229,67 @@ jobs:
         echo "=== Last 200 lines of buildozer log ==="
         tail -200 buildozer.log || echo "Could not read buildozer.log"
         
+        # Check if distribution was created but APK wasn't built
+        echo "=== Checking if distribution was created ==="
+        DIST_DIR=".buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/dialysis_supply_app"
+        if [ -d "$DIST_DIR" ]; then
+          echo "=== Distribution directory exists ==="
+          ls -la "$DIST_DIR"
+          
+          # Check if APK was built
+          if ! find "$DIST_DIR" -name "*.apk" | grep -q .; then
+            echo "=== APK not found in distribution directory ==="
+            echo "=== Attempting manual APK build with gradlew ==="
+            
+            cd "$DIST_DIR"
+            
+            # Make gradlew executable
+            if [ -f "gradlew" ]; then
+              chmod +x gradlew
+              
+              echo "=== Running gradlew assembleDebug ==="
+              ./gradlew assembleDebug --stacktrace --info 2>&1 | tee gradle_build.log
+              
+              GRADLE_EXIT_CODE=$?
+              echo "=== Gradle exit code: $GRADLE_EXIT_CODE ==="
+              
+              # Find and copy APK to workspace root
+              echo "=== Searching for generated APK ==="
+              find . -name "*.apk" -type f -ls
+              
+              APK_FILE=$(find . -name "*.apk" -type f | head -1)
+              if [ -n "$APK_FILE" ]; then
+                echo "=== APK found: $APK_FILE ==="
+                mkdir -p /home/runner/work/dialysis-supply-app/dialysis-supply-app/bin
+                cp "$APK_FILE" /home/runner/work/dialysis-supply-app/dialysis-supply-app/bin/
+                echo "=== APK copied to workspace bin directory ==="
+                ls -la /home/runner/work/dialysis-supply-app/dialysis-supply-app/bin/
+              else
+                echo "=== ERROR: APK not found after gradle build ==="
+                echo "=== Last 100 lines of gradle build log ==="
+                tail -100 gradle_build.log || echo "Could not read gradle log"
+              fi
+              
+              # Return to workspace root
+              cd /home/runner/work/dialysis-supply-app/dialysis-supply-app
+            else
+              echo "=== ERROR: gradlew not found in distribution directory ==="
+              echo "=== Contents of distribution directory: ==="
+              find "$DIST_DIR" -type f | head -20
+            fi
+          else
+            echo "=== APK already exists in distribution directory ==="
+            find "$DIST_DIR" -name "*.apk" -type f -ls
+            # Copy to bin directory for easier upload
+            mkdir -p bin
+            find "$DIST_DIR" -name "*.apk" -type f -exec cp {} bin/ \;
+            echo "=== APK copied to bin directory ==="
+            ls -la bin/
+          fi
+        else
+          echo "=== Distribution directory not found, will try alternative build methods ==="
+        fi
+        
         # If buildozer fails, try multiple approaches
         if [ $BUILD_EXIT_CODE -ne 0 ]; then
           echo "=== Buildozer failed, trying alternative approaches ==="
@@ -394,4 +455,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: app-debug.apk
-        path: "**/*.apk"
+        path: |
+          bin/*.apk
+          **/*.apk
