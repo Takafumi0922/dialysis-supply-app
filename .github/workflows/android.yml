@@ -25,12 +25,13 @@ jobs:
       with:
         python-version: '3.10'
 
-    # キャッシュを設定してビルド時間を短縮
+    # キャッシュのキーを変更して、古いNDKをクリアする
     - name: Cache Buildozer global directory
       uses: actions/cache@v4
       with:
         path: ~/.buildozer
-        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+        # キーの末尾に "-v2" を追加して、キャッシュを意図的に無効化
+        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}-v2
         restore-keys: |
           ${{ runner.os }}-buildozer-
 
@@ -52,6 +53,10 @@ jobs:
       # タイムアウトを30分に設定
       timeout-minutes: 30
       run: |
+        # システムのNDK環境変数がビルドに影響を与えないように unset する
+        unset ANDROID_NDK_HOME
+        unset ANDROID_NDK_ROOT
+        
         buildozer -v android debug
 
     - name: Upload APK

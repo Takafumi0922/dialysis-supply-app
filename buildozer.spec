@@ -41,7 +41,7 @@ android.api = 34
 android.minapi = 21
 
 # (str) Android NDK version to use (compatible with libffi)
-android.ndk = 23c
+android.ndk = 25b
 
 # (str) Android SDK version to use
 # android.sdk = 34  # Deprecated, using p4a.sdk_version instead
@@ -83,7 +83,7 @@ log_level = 2
 p4a.bootstrap = sdl2
 
 # (str) Python-for-Android NDK version
-p4a.ndk_version = 23c
+p4a.ndk_version = 25b
 
 # (str) Python-for-Android SDK version
 p4a.sdk_version = 34
